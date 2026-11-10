@@ -1,0 +1,43 @@
+Operating Systems
+Code: PCC-CS502    Contacts: 3L    Credits: 3
+
+Course Outcomes: After completing this course the student will be able to
+CO1 describe the services provided by an operating system
+CO2 analyse process scheduling and synchronization
+
+Unit 1: Introduction (4L)
+Concept of Operating Systems, Types of Operating Systems, OS Services, System Calls,
+Structure of an OS - Layered, Monolithic, Microkernel Operating Systems, Concept of Virtual
+Machine.
+
+Unit 2: Processes and Threads (8L)
+Processes: Definition, Process states, Process Control Block (PCB), Context switching,
+Interprocess communication. Threads: Definition, Benefits of threads, Types of threads,
+Multithreading models.
+
+Unit 3: CPU Scheduling (6L)
+Scheduling criteria, Scheduling algorithms: FCFS, SJF, Priority scheduling, Round Robin,
+Multilevel queue scheduling, Multilevel feedback queue scheduling.
+
+Unit 4: Process Synchronization (8L)
+Critical section problem, Peterson's solution, Test and set lock, Semaphores, Classical
+problems of synchronization: Bounded buffer problem, Readers writers problem, Dining
+philosophers problem, Monitors.
+
+Unit 5: Deadlocks (6L)
+Deadlock characterization, Necessary conditions for deadlock, Resource allocation graph,
+Deadlock prevention, Deadlock avoidance: Banker's algorithm, Deadlock detection and recovery.
+
+Unit 6: Memory Management (8L)
+Logical and physical address space, Swapping, Contiguous memory allocation, Paging,
+Segmentation, Virtual memory: Demand paging, Page replacement algorithms, Thrashing.
+
+Unit 7: Storage and File Systems (6L)
+Disk scheduling algorithms, RAID levels, File allocation methods, Free space management,
+Directory structure.
+
+Text Books:
+1. Operating System Concepts, Silberschatz, Galvin and Gagne, Wiley
+2. Modern Operating Systems, Andrew S. Tanenbaum
+Reference Books:
+1. Operating Systems: Internals and Design Principles, William Stallings
