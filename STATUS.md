@@ -85,8 +85,47 @@ the cache).
 
 ## Resume here
 
-Nothing is half-finished. The backend, its API tests and the evaluation gate are
-complete and green. Start at item 1 of the list below.
+The backend, its API tests and the evaluation gate are complete and green.
+**The frontend (item 1 below) is in progress.**
+
+### Frontend: what exists
+
+In `frontend/`: `package.json` (dependencies installed with `npm install`),
+`vite.config.ts` (dev proxy `/api` to `127.0.0.1:8000`), `tsconfig.json`,
+`index.html`, `public/theme.js`, `public/favicon.svg`, and in `src/`:
+
+- `styles.css`: Tailwind v4 with the design tokens (both themes).
+- `api.ts`: typed client for every backend endpoint.
+- `format.ts`: time, number and class-name helpers.
+- `ui.tsx`: Button, IconButton, Field, TextArea, Chip, Card, Notice, Skeleton,
+  EmptyState, Dialog, ThemeToggle, Logo.
+
+### Frontend: what is left to write
+
+- `src/main.tsx`, `src/App.tsx` (React Router routes, React Query provider),
+  `src/session.tsx` (current user, sign-in guard).
+- `src/scene/HeroScene.tsx`: the 3D hero (React Three Fiber). Video slabs floating
+  in depth along a glowing path line, one wireframe "ghost" slab for a topic no
+  video covers, a light travelling along the path, pointer parallax. Lazy-loaded;
+  static under reduced motion; hidden if WebGL is unavailable.
+- `src/pages/Landing.tsx`, `Auth.tsx`, `Projects.tsx`, `Workspace.tsx` with tabs
+  Sources, Path, Focus (most important topics), Questions, Search, Topics, plus a
+  player dialog (YouTube embed starting at the matched second, next/previous).
+
+### Frontend: design decisions (keep these consistent)
+
+- Product name in the UI: **Waypoint**.
+- Design read: a study-tool landing page and app for university students, dark and
+  spatial. Taste-skill dials: variance 8, motion 7, density 4.
+- One accent, volt lime `#c8f542`, on cool off-black / off-white neutrals. Amber is
+  used only for the "no video found" state. No purple, no gradient text.
+- Type: Geist and Geist Mono, self-hosted through `@fontsource-variable`.
+- Shape rule: buttons and chips are pills, cards 20px, fields 12px.
+- Icons: `@phosphor-icons/react` only. Motion: `motion/react`. No em-dashes in
+  any visible text. Landing page shows real components with sample data from the
+  Neso playlist, never fake screenshots.
+- The Content-Security-Policy in `backend/app/observability.py` forbids inline
+  scripts, which is why the theme script is a file.
 
 ## Done since the first checkpoint
 
@@ -135,10 +174,9 @@ complete and green. Start at item 1 of the list below.
 ```bash
 cd backend
 python -m venv .venv
-.venv/Scripts/python -m pip install fastapi "uvicorn[standard]" "sqlalchemy>=2" alembic \
-  pydantic-settings pyjwt bcrypt python-multipart httpx numpy scikit-learn pypdfium2 \
-  python-docx pillow yt-dlp youtube-transcript-api "psycopg[binary]" fastembed \
-  rapidocr-onnxruntime prometheus-client email-validator pytest ruff
+.venv/Scripts/python -m pip install -r requirements-dev.txt
+
+.venv/Scripts/python -m pytest                               # 34 tests, no network
 
 .venv/Scripts/python -m evaluation.run --backend hash        # offline quality gate
 .venv/Scripts/python -m evaluation.run --backend fastembed   # with the real models
