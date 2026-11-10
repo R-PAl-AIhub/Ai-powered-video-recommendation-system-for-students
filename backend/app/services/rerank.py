@@ -30,8 +30,13 @@ PASSAGE_CHARS = 1200  # ~250 tokens; the model reads at most 512 tokens per pair
 class Reranker(Protocol):
     name: str
 
-    def score(self, query: str, passages: list[str]) -> list[float]:
-        """Relevance of each passage to the query, calibrated to 0..1."""
+    def raw_scores(self, query: str, passages: list[str]) -> list[float]:
+        """The model's own score for each passage. This is what gets cached, so a
+        later change of calibration applies to cached scores too."""
+        ...
+
+    def calibrate(self, raw: float) -> float:
+        """Map a raw score to a relevance in 0..1."""
         ...
 
 
@@ -52,16 +57,15 @@ class FastEmbedReranker:
         if "ms-marco" not in model_name.lower():
             log.warning("reranker %s is uncalibrated; scores may be too strict or lax", model_name)
 
-    def score(self, query: str, passages: list[str]) -> list[float]:
+    def raw_scores(self, query: str, passages: list[str]) -> list[float]:
         if not passages:
             return []
         with self._lock:
-            logits = np.fromiter(
-                self._model.rerank(query, [p[:PASSAGE_CHARS] for p in passages], batch_size=16),
-                dtype=np.float32,
-            )
-        scaled = np.clip((logits - self._low) / (self._high - self._low), 0.0, 1.0)
-        return [float(value) for value in scaled]
+            logits = self._model.rerank(query, [p[:PASSAGE_CHARS] for p in passages], batch_size=16)
+            return [float(value) for value in logits]
+
+    def calibrate(self, raw: float) -> float:
+        return float(np.clip((raw - self._low) / (self._high - self._low), 0.0, 1.0))
 
 
 def query_hash(text: str) -> str:

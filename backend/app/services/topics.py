@@ -119,6 +119,9 @@ def _is_generic(name: str) -> bool:
     return bool(words) and all(w in _GENERIC for w in words)
 
 
+is_generic = _is_generic  # public name: other modules ask "is this just 'Definition'?"
+
+
 def _stems(text: str) -> set[str]:
     return {w[:5] for w in re.findall(r"[a-z]{4,}", text.lower())}
 

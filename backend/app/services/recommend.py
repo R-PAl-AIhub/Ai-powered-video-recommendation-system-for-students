@@ -27,7 +27,7 @@ from .matching import (
 )
 from .rerank import get_reranker, query_hash
 from .sequencing import Candidate, choose_path
-from .topics import chunk_paragraphs, split_questions
+from .topics import chunk_paragraphs, is_generic, split_questions
 
 DEFAULT_THRESHOLD = 0.5
 THRESHOLD_RANGE = (-0.12, 0.20)  # how far feedback may move the threshold from the default
@@ -40,7 +40,8 @@ SHORTLIST_SIZE = 6  # videos per topic passed to the cross-encoder
 SHORTLIST_FLOOR = 0.35  # embedding relevance needed to be shortlisted
 RERANK_PASSAGES = 3  # transcript chunks per video read by the cross-encoder
 FIRST_STAGE_WEIGHT = 0.15  # how much a weak embedding score trims the final relevance
-TITLE_BONUS = 0.06  # tie-breaker for a video whose title names the topic
+TITLE_BONUS = 0.08  # tie-breaker for a video whose title names the topic
+PRACTICE_PENALTY = 0.05  # worked-problem videos rank just below the concept lecture
 CONTEXT_WEIGHT = 0.15  # share of the unit-qualified wording in a topic vector
 NOTES_WEIGHT = 0.15  # share of the teacher's notes passage, when one matches
 
@@ -56,18 +57,60 @@ def unit_title(unit: str) -> str:
     return "" if _UNIT_LABEL_ONLY.match(unit.strip()) else unit.strip()
 
 
-def _lexical_text(topic: Topic) -> str:
-    title = unit_title(topic.unit)
-    return f"{topic.name} {title}".strip()
+_ACRONYM = re.compile(r"\b[A-Z]{2,6}\b")
+_DEFINED_ACRONYM = re.compile(r"([A-Z][A-Za-z' -]{3,60}?)\s*\(([A-Z]{2,6})\)")
+_MINOR_WORDS = {"of", "and", "the", "in", "for", "to", "a", "an", "on", "with"}
 
 
-def _context_text(topic: Topic) -> str:
+def acronym_map(project: Project) -> dict[str, str]:
+    """Abbreviations that can be spelled out: the initials of the course subject
+    ("OS" for "Operating Systems") and any "Full Name (ABBR)" a topic defines."""
+    table: dict[str, str] = {}
+    words = [w for w in re.findall(r"[A-Za-z]+", project.subject) if w.lower() not in _MINOR_WORDS]
+    for size in range(2, 6):
+        for start in range(len(words) - size + 1):
+            window = words[start : start + size]
+            table.setdefault("".join(w[0] for w in window).upper(), " ".join(window))
+    for topic in project.topics:
+        for full, short in _DEFINED_ACRONYM.findall(topic.name):
+            table[short] = full.strip()
+    return table
+
+
+def query_text(topic: Topic, acronyms: dict[str, str]) -> str:
+    """The wording used to match a topic, which can differ from its display name.
+
+    * "Processes: Definition" is matched as "Processes": a generic sub-item asks
+      for the introduction to its heading, and "definition" itself matches nothing.
+    * Known abbreviations are spelled out ("Structure of an OS" -> "... Operating
+      Systems"), because lecturers title videos with the full words.
+    """
+    name = topic.name
+    if ": " in name:
+        head, tail = name.split(": ", 1)
+        if is_generic(tail):
+            name = head
+
+    def expand(match: re.Match) -> str:
+        full = acronyms.get(match.group(0))
+        if not full or full.lower() in name.lower():  # already spelled out in the name
+            return match.group(0)
+        return full
+
+    return _ACRONYM.sub(expand, name)
+
+
+def _lexical_text(text: str, topic: Topic) -> str:
+    return f"{text} {unit_title(topic.unit)}".strip()
+
+
+def _context_text(text: str, topic: Topic) -> str:
     """The topic with its unit, e.g. "Threads, Processes and Scheduling".
 
     The course subject is deliberately left out: every video in a course matches
     its subject, so adding it makes topics that no video covers look covered.
     """
-    parts = [topic.name, unit_title(topic.unit)]
+    parts = [text, unit_title(topic.unit)]
     return ", ".join(dict.fromkeys(p for p in parts if p))
 
 
@@ -129,10 +172,14 @@ def ensure_topic_vectors(
     if not pending:
         return
 
-    names = embedder.embed_queries([t.name for t in pending])
-    contexts = embedder.embed_queries([_context_text(t) for t in pending])
+    acronyms = acronym_map(project)
+    texts = [query_text(t, acronyms) for t in pending]
+    names = embedder.embed_queries(texts)
+    contexts = embedder.embed_queries(
+        [_context_text(text, t) for text, t in zip(texts, pending, strict=True)]
+    )
     vectors = _unit((1 - CONTEXT_WEIGHT) * names + CONTEXT_WEIGHT * contexts)
-    lexical = [_lexical_text(t) for t in pending]
+    lexical = [_lexical_text(text, t) for text, t in zip(texts, pending, strict=True)]
 
     exam_texts, exam_vectors = _collect(project, "exam", embedder)
     exam_scores = score_passages(embedder, vectors, lexical, exam_vectors, exam_texts)
@@ -219,9 +266,26 @@ _TITLE_STOP = frozenset(
 )
 
 
+_PRACTICE_TITLE = re.compile(
+    r"\b(solved|problems?|numericals?|examples?|practice|questions?|pyqs?|quiz|exercise|"
+    r"gate\s+\d{4}|previous\s+year)\b",
+    re.IGNORECASE,
+)
+
+
+def _stem(word: str) -> str:
+    """Crude stem: drop a plural ending, then keep the first six letters, so
+    "states"/"State" and "scheduling"/"scheduler" compare equal."""
+    if len(word) > 4 and word.endswith("es") and not word.endswith("ses"):
+        word = word[:-2] if word.endswith(("ches", "shes", "xes")) else word[:-1]
+    elif len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+        word = word[:-1]
+    return word[:6]
+
+
 def _title_tokens(text: str) -> set[str]:
     words = re.findall(r"[a-z0-9]+", text.lower())
-    return {w[:6] for w in words if len(w) >= 3 and w not in _TITLE_STOP}
+    return {_stem(w) for w in words if len(w) >= 3 and w not in _TITLE_STOP}
 
 
 def title_affinity(topic_name: str, video_title: str) -> float:
@@ -297,7 +361,7 @@ def rerank_relevance(
             else:
                 missing.append(chunk_row)
         if missing:
-            fresh = reranker.score(text, [index.texts[r] for r in missing])
+            fresh = reranker.raw_scores(text, [index.texts[r] for r in missing])
             for chunk_row, value in zip(missing, fresh, strict=True):
                 known[chunk_row] = value
                 if db is None or topic_id is None:
@@ -311,14 +375,14 @@ def rerank_relevance(
                 cached.query_hash, cached.model, cached.score = digest, reranker.name, value
 
         for column, rows in zip(columns, chunk_rows, strict=True):
-            second = max(known[r] for r in rows)
+            second = reranker.calibrate(max(known[r] for r in rows))
             first = float(relevance[row, column])
             out[row, column] = second * (1.0 - FIRST_STAGE_WEIGHT * (1.0 - first))
     return out
 
 
 def _rank_score(
-    topic: Topic,
+    text: str,
     index: ProjectIndex,
     relevance: np.ndarray,
     quality: list[float],
@@ -326,7 +390,12 @@ def _rank_score(
     column: int,
 ) -> float:
     base = final_score(float(relevance[row, column]), quality[column])
-    return base + TITLE_BONUS * title_affinity(topic.name, index.videos[column].title)
+    title = index.videos[column].title
+    score = base + TITLE_BONUS * title_affinity(text, title)
+    # Between equally relevant videos, teach the concept before the worked problems.
+    if _PRACTICE_TITLE.search(title) and not _PRACTICE_TITLE.search(text):
+        score -= PRACTICE_PENALTY
+    return score
 
 
 # ---------------------------------------------------------------- recommendations
@@ -359,10 +428,12 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         return stats
 
     vectors = np.vstack([from_blob(t.embedding) for t in topics])
+    acronyms = acronym_map(project)
+    texts = {t.id: query_text(t, acronyms) for t in topics}
     scores = hybrid_scores(
         embedder,
         vectors,
-        [_lexical_text(t) for t in topics],
+        [_lexical_text(texts[t.id], t) for t in topics],
         index.matrix,
         index.vectorizer,
         index.tfidf,
@@ -378,7 +449,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         db,
         project.id,
         index,
-        [(t.id, t.name) for t in topics],
+        [(t.id, texts[t.id]) for t in topics],
         scores,
         video_relevance(index, scores),
         pinned_columns,
@@ -399,7 +470,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
             continue
         ranked = sorted(
             (
-                (_rank_score(topic, index, relevance, quality, row, int(column)), int(column))
+                (_rank_score(texts[topic.id], index, relevance, quality, row, int(column)), int(column))
                 for column in np.flatnonzero(relevance[row] >= threshold)
                 if index.videos[column].id not in feedback.blocked_videos
                 and (topic.id, index.videos[column].id) not in feedback.blocked_pairs
@@ -409,7 +480,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         pinned_video = feedback.pinned.get(topic.id)
         pinned_column = column_of.get(pinned_video) if pinned_video is not None else None
         if pinned_column is not None and all(column != pinned_column for _, column in ranked):
-            score = _rank_score(topic, index, relevance, quality, row, pinned_column)
+            score = _rank_score(texts[topic.id], index, relevance, quality, row, pinned_column)
             ranked.insert(0, (score, pinned_column))
         entries = []
         for score, column in ranked:

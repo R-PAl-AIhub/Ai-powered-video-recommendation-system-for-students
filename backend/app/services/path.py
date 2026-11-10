@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from ..models import Document, Feedback, Job, Playlist, Project, Recommendation, Topic, Video
 from ..schemas import (

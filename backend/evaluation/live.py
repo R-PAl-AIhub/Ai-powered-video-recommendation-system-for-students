@@ -121,8 +121,6 @@ def main() -> int:
             print(f"warning: {warning}")
 
         index = get_index(db, project.id, get_embedder())
-        column_of = {v.id: c for c, v in enumerate(index.videos)}
-        topics = {t.id: t for t in project.topics}
 
         def stages(topic_id: int, limit: int = 3) -> str:
             """First-stage (embedding) and second-stage (cross-encoder) scores of the

@@ -13,9 +13,8 @@ git-ignored on purpose (the repository is public).
 
 ## State in one line
 
-The **backend is written and runs end to end**. **Tests, the frontend, Docker, CI/CD
-and the README are not started.** Work stopped in the middle of tuning how the two
-matching stages are combined (details under "Resume here").
+The **backend is written and runs end to end, and matching quality is tuned and
+measured**. **Tests, the frontend, Docker, CI/CD and the README are not started.**
 
 ## Done
 
@@ -29,7 +28,7 @@ All under `backend/`:
 | YouTube access | `app/services/youtube.py` | yt-dlp path verified live. Data API path is written but untested (no API key). |
 | Documents and OCR | `app/services/documents.py`, `app/services/ocr.py` | Written, not yet tested. |
 | Topic extraction | `app/services/topics.py` | Verified on four syllabus formats by hand. |
-| Matching | `app/services/embeddings.py`, `matching.py`, `rerank.py`, `recommend.py`, `fuzzy.py`, `sequencing.py` | Works; second stage still being tuned. |
+| Matching | `app/services/embeddings.py`, `matching.py`, `rerank.py`, `recommend.py`, `fuzzy.py`, `sequencing.py` | Tuned and measured (see below). |
 | Pipeline and jobs | `app/services/pipeline.py`, `app/services/jobs.py`, `app/worker.py` | Pipeline verified end to end. Job queue written, not yet tested. |
 | Observability | `app/observability.py` | Written, not yet tested. |
 | Evaluation | `evaluation/` | Working (see below). |
@@ -38,49 +37,34 @@ All under `backend/`:
 
 Synthetic labelled course (`python -m evaluation.run`):
 
-- Embeddings only (before the reranker was added): top-1 accuracy 25/25, gaps 3/3.
-- Lexical fallback (`--backend hash`): 25/25, gaps 3/3. This still passes.
-- **With the reranker as currently combined: 23/25 and two false gaps. The gate
-  fails.** This is the open problem.
+- Real models (`--backend fastembed`): top-1 accuracy 25/25, gaps 3/3. Passes.
+- Lexical fallback (`--backend hash`): 23/25, gaps 3/3. Passes (threshold 0.9).
 
 Real playlist (Neso Academy "Operating System", 77 videos, cached in
-`backend/data/live-os.db`, not in git):
+`backend/data/live-os.db`, not in git) against `evaluation/samples/os_syllabus.txt`:
 
-- Units 1 to 4 of a real syllabus match sensibly with correct timestamps.
-- Units 5 to 7 are correctly reported as gaps: that free playlist has no deadlock,
-  memory or storage lectures, only 40 to 78 second promo clips, which are now
-  excluded by `MIN_VIDEO_SECONDS=120`.
+- Units 1 to 4: all 38 topics matched, nearly all to exactly the right lecture,
+  with timestamps inside multi-topic videos.
+- Units 5 to 7: 20 topics correctly reported as gaps. That free playlist has no
+  deadlock, memory or storage lectures, only 40 to 78 second promo clips, which
+  are excluded by `MIN_VIDEO_SECONDS=120`.
+- Topic searches return the right videos or an honest "Video not found".
 
-## Resume here
+## Matching: settled
 
-**Done since the first checkpoint.** The second stage now reads the title chunk plus
-the top three transcript chunks, is calibrated to a 0.8 to 4.9 logit window, and
-leads the relevance (`relevance = s2 * (1 - 0.15 * (1 - s1))`). Results:
+The matching pipeline is tuned and should not need more work before the rest is
+built. How it works, with the evidence:
 
-- Synthetic gate passes: 24/25, gaps 3/3, timestamps 3/3.
-- Real playlist: Units 3 and 4 essentially all correct; look-alikes rejected;
-  searches correct, including honest "Video not found".
+1. **Stage 1, embeddings + TF-IDF** shortlists six videos per topic.
+2. **Stage 2, a cross-encoder** (`Xenova/ms-marco-MiniLM-L-6-v2`) reads the topic
+   against each shortlisted video's title chunk and top three transcript chunks and
+   sets the relevance: `relevance = s2 * (1 - 0.15 * (1 - s1))`.
+3. **Topic wording** (`query_text()` in `recommend.py`): "X: Definition" is matched
+   as "X"; abbreviations are spelled out from the course subject ("OS").
+4. **Tie-breakers**: title match bonus, slight penalty for worked-problem videos,
+   and the path-level continuity bonuses.
 
-**Still wrong on the real playlist, with the intended fix for each.**
-
-1. *The abbreviation "OS".* "Structure of an OS" picks "Basics of OS (I/O
-   Structure)" instead of "Structures of Operating System"; "OS Services" scores
-   only 0.51. Fix: expand acronyms in the topic text used for both stages, by
-   matching an all-caps token against the initials of the project subject and unit
-   titles ("OS" from "Operating Systems") and against "Name (ABBR)" definitions.
-2. *"Process states" loses to the next video.* `_title_tokens()` in `recommend.py`
-   stems by truncating to six characters, so "states" and "State" do not match.
-   Fix: strip plural endings before truncating, and raise `TITLE_BONUS` to 0.08.
-3. *Generic names rejected by the cross-encoder.* "Processes", "Processes:
-   Definition", "Types of threads" become gaps. Run
-   `python -m evaluation.rerank_study --models Xenova/ms-marco-MiniLM-L-6-v2 --detail`
-   to see which labelled positives fail under each phrasing before choosing a fix.
-
-**Background: why the second stage was changed.** The first version combined the
-embedding score (stage 1) and cross-encoder score (stage 2) as a geometric mean and
-read one transcript chunk per video, which wrongly rejected true matches.
-
-**Evidence.** `python -m evaluation.rerank_study` on 60 labelled real pairs:
+`python -m evaluation.rerank_study` on 60 labelled real pairs:
 
 | Model | Passages per video | AUC | Best accuracy |
 |---|---|---|---|
@@ -88,11 +72,19 @@ read one transcript chunk per video, which wrongly rejected true matches.
 | `Xenova/ms-marco-MiniLM-L-12-v2` | 3 | 0.990 | 0.967 (3x slower) |
 | `jinaai/jina-reranker-v1-turbo-en` | 3 | 0.967 | 0.933 |
 
-With three passages: positives have p10 = 3.42 and median 7.19; negatives have a
-maximum of 2.72. Rephrasing the query did not help.
+Known small imperfections, left as they are: on the synthetic course one timestamp
+is a chunk late ("Structure of an OS"); on the real playlist "Concept of Operating
+Systems" picks video #2 rather than #1.
 
-After any change, re-run `python -m evaluation.run --backend fastembed` (must pass)
-and `python -m evaluation.live --name os ... --raw` (works offline from the cache).
+Reranker scores are cached raw in the `rerank_scores` table and calibrated on read.
+
+After any matching change, re-run `python -m evaluation.run --backend fastembed`
+(must pass) and `python -m evaluation.live --name os ... --raw` (works offline from
+the cache).
+
+## Resume here
+
+Start at item 0 of the list below. Nothing is half-finished.
 
 ## Not started, in order
 
