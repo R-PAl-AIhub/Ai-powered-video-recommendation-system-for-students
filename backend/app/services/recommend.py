@@ -38,6 +38,8 @@ NOTES_HIT = 0.5
 CLOSEST_FLOOR = 0.25
 SHORTLIST_SIZE = 6  # videos per topic passed to the cross-encoder
 SHORTLIST_FLOOR = 0.35  # embedding relevance needed to be shortlisted
+RERANK_PASSAGES = 3  # transcript chunks per video read by the cross-encoder
+FIRST_STAGE_WEIGHT = 0.15  # how much a weak embedding score trims the final relevance
 TITLE_BONUS = 0.06  # tie-breaker for a video whose title names the topic
 CONTEXT_WEIGHT = 0.15  # share of the unit-qualified wording in a topic vector
 NOTES_WEIGHT = 0.15  # share of the teacher's notes passage, when one matches
@@ -243,9 +245,11 @@ def rerank_relevance(
 
     For every query the top videos by embedding relevance are shortlisted, and the
     cross-encoder reads the query against each one's title/description chunk and
-    best transcript chunk. The result is the geometric mean of the two stages, so
-    a video needs both to agree. Videos outside the shortlist score 0. Scores are
-    cached per (topic, chunk) when a session and topic ids are given.
+    best transcript chunks. The cross-encoder score becomes the relevance, trimmed
+    slightly when the embedding stage was lukewarm: on labelled real pairs it
+    separates true matches from look-alikes far better than the embeddings do, so
+    it leads and the embeddings only shortlist. Videos outside the shortlist score
+    0. Scores are cached per (topic, chunk) when a session and topic ids are given.
 
     Returns the input relevance unchanged when no reranker is configured.
     """
@@ -271,13 +275,16 @@ def rerank_relevance(
             continue
 
         # The chunks to read for each shortlisted video: its meta chunk, and its
-        # best transcript chunk according to the first stage.
+        # best few transcript chunks according to the first stage. Reading only
+        # the single best chunk wrongly rejected real matches; three is where
+        # accuracy levels off (see evaluation/rerank_study.py).
         chunk_rows: list[list[int]] = []
         for column in columns:
             start, end = index.spans[column]
             rows = [start]
             if end - start > 1:
-                rows.append(start + 1 + int(np.argmax(scores[row, start + 1 : end])))
+                best = np.argsort(-scores[row, start + 1 : end])[:RERANK_PASSAGES]
+                rows.extend(start + 1 + int(offset) for offset in best)
             chunk_rows.append(rows)
 
         digest = query_hash(text)
@@ -305,7 +312,8 @@ def rerank_relevance(
 
         for column, rows in zip(columns, chunk_rows, strict=True):
             second = max(known[r] for r in rows)
-            out[row, column] = float(np.sqrt(relevance[row, column] * second))
+            first = float(relevance[row, column])
+            out[row, column] = second * (1.0 - FIRST_STAGE_WEIGHT * (1.0 - first))
     return out
 
 

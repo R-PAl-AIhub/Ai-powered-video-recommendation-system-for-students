@@ -42,11 +42,13 @@ class FastEmbedReranker:
         self._model = TextCrossEncoder(model_name=model_name, cache_dir=cache_dir)
         self._lock = threading.Lock()
         self.name = f"fastembed:{model_name}"
-        # Logit window mapped to 0..1. Measured for the MS MARCO MiniLM models on
-        # real lecture playlists: unrelated pairs score below -5, same-words-but-
-        # wrong-subject pairs 2.0-2.8, genuine matches 4.8-9.5. Other models use a
+        # Logit window mapped to 0..1, set so the best separating logit (2.84)
+        # lands on 0.5. Measured with evaluation/rerank_study.py on 60 labelled
+        # pairs from a real lecture playlist, taking the best of four passages per
+        # video: look-alike pairs peak at 2.72, genuine matches have a 10th
+        # percentile of 3.42 and a median of 7.2 (AUC 0.99). Other models use a
         # different output scale and must be measured before use.
-        self._low, self._high = 2.0, 7.0
+        self._low, self._high = 0.8, 4.9
         if "ms-marco" not in model_name.lower():
             log.warning("reranker %s is uncalibrated; scores may be too strict or lax", model_name)
 

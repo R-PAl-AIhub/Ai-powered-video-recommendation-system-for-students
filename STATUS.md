@@ -53,10 +53,32 @@ Real playlist (Neso Academy "Operating System", 77 videos, cached in
 
 ## Resume here
 
-**Problem.** `rerank_relevance()` in `backend/app/services/recommend.py` combines the
-embedding score (stage 1) and cross-encoder score (stage 2) as a geometric mean, and
-reads only one transcript chunk per video. That wrongly rejects some true matches
-("Concept of Operating Systems" against "Introduction to Operating Systems").
+**Done since the first checkpoint.** The second stage now reads the title chunk plus
+the top three transcript chunks, is calibrated to a 0.8 to 4.9 logit window, and
+leads the relevance (`relevance = s2 * (1 - 0.15 * (1 - s1))`). Results:
+
+- Synthetic gate passes: 24/25, gaps 3/3, timestamps 3/3.
+- Real playlist: Units 3 and 4 essentially all correct; look-alikes rejected;
+  searches correct, including honest "Video not found".
+
+**Still wrong on the real playlist, with the intended fix for each.**
+
+1. *The abbreviation "OS".* "Structure of an OS" picks "Basics of OS (I/O
+   Structure)" instead of "Structures of Operating System"; "OS Services" scores
+   only 0.51. Fix: expand acronyms in the topic text used for both stages, by
+   matching an all-caps token against the initials of the project subject and unit
+   titles ("OS" from "Operating Systems") and against "Name (ABBR)" definitions.
+2. *"Process states" loses to the next video.* `_title_tokens()` in `recommend.py`
+   stems by truncating to six characters, so "states" and "State" do not match.
+   Fix: strip plural endings before truncating, and raise `TITLE_BONUS` to 0.08.
+3. *Generic names rejected by the cross-encoder.* "Processes", "Processes:
+   Definition", "Types of threads" become gaps. Run
+   `python -m evaluation.rerank_study --models Xenova/ms-marco-MiniLM-L-6-v2 --detail`
+   to see which labelled positives fail under each phrasing before choosing a fix.
+
+**Background: why the second stage was changed.** The first version combined the
+embedding score (stage 1) and cross-encoder score (stage 2) as a geometric mean and
+read one transcript chunk per video, which wrongly rejected true matches.
 
 **Evidence.** `python -m evaluation.rerank_study` on 60 labelled real pairs:
 
@@ -69,18 +91,21 @@ reads only one transcript chunk per video. That wrongly rejects some true matche
 With three passages: positives have p10 = 3.42 and median 7.19; negatives have a
 maximum of 2.72. Rephrasing the query did not help.
 
-**Next steps, in order.**
-
-1. In `rerank_relevance()`, read the title/description chunk plus the **top three**
-   transcript chunks per shortlisted video (currently one).
-2. Recalibrate `FastEmbedReranker` in `backend/app/services/rerank.py` so logit 2.84
-   maps to about 0.5 (try a window of 0.8 to 4.9; it is 2.0 to 7.0 now).
-3. Make stage 2 the main signal instead of a geometric mean, for example
-   `relevance = s2 * (0.85 + 0.15 * s1)`. A look-alike at s1 0.83 must end below 0.5.
-4. Re-run `python -m evaluation.run --backend fastembed` (must pass) and
-   `python -m evaluation.live --name os ... --raw` (works offline from the cache).
+After any change, re-run `python -m evaluation.run --backend fastembed` (must pass)
+and `python -m evaluation.live --name os ... --raw` (works offline from the cache).
 
 ## Not started, in order
+
+0. **Most important topics and a question-and-answer section** (requested by the
+   user on 2026-11-10). Interpretation chosen:
+   - *Most important topics*: rank topics by an importance score built from
+     `Topic.exam_hits` / `exam_weight` (how often past papers ask about them) and
+     `Topic.in_notes`, expose it on the API and show it as its own section.
+   - *Question and answer section*: store each past-paper question (new `questions`
+     table, filled in the pipeline from `split_questions()`), link it to its best
+     topic and to the video moment that answers it (reuse `search_project()` logic),
+     and return the transcript excerpt as the answer context. Endpoint
+     `GET /api/projects/{id}/questions`, grouped by topic.
 
 1. **YouTube robustness.** After one full-playlist run YouTube blocked this machine
    ("Sign in to confirm you're not a bot") for both yt-dlp and the transcript
