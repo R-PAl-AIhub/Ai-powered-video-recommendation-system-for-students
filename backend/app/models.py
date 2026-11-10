@@ -237,6 +237,36 @@ class Recommendation(Base):
     video: Mapped[Video] = relationship()
 
 
+class Question(Base):
+    """A question from a past exam paper, linked to the topic it is about and to
+    the moment in a video that answers it."""
+
+    __tablename__ = "questions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0)  # order within the paper
+    text: Mapped[str] = mapped_column(Text)
+    topic_id: Mapped[int | None] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    video_id: Mapped[int | None] = mapped_column(
+        ForeignKey("videos.id", ondelete="SET NULL"), nullable=True
+    )
+    relevance: Mapped[float] = mapped_column(Float, default=0.0)
+    start_s: Mapped[float] = mapped_column(Float, default=0.0)
+    snippet: Mapped[str] = mapped_column(Text, default="")
+
+    document: Mapped[Document] = relationship()
+    topic: Mapped[Topic | None] = relationship()
+    video: Mapped[Video | None] = relationship()
+
+
 class RerankScore(Base):
     """Cached cross-encoder score for a (topic wording, video chunk) pair, so the
     path can be re-planned after feedback without running the model again."""
@@ -285,7 +315,9 @@ class Job(Base):
     )
     kind: Mapped[str] = mapped_column(String(20), default="process")
     options: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    status: Mapped[str] = mapped_column(String(12), default="queued")  # queued|running|done|failed
+    # queued | running | done | failed | scheduled (an automatic retry waiting for run_after)
+    status: Mapped[str] = mapped_column(String(12), default="queued")
+    run_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     stage: Mapped[str] = mapped_column(String(40), default="queued")
     progress: Mapped[float] = mapped_column(Float, default=0.0)  # 0..1

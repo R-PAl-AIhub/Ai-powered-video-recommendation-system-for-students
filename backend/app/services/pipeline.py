@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,12 +22,14 @@ from ..models import Document, Playlist, Project, Topic, Video, VideoChunk, utcn
 from . import documents as documents_service
 from .embeddings import get_embedder, to_blob
 from .matching import invalidate_index
+from .questions import link_questions
 from .recommend import ensure_topic_vectors, rebuild_recommendations
 from .topics import extract_topics
 from .youtube import (
     Transcript,
     TranscriptSegment,
     VideoMeta,
+    YouTubeBlocked,
     YouTubeClient,
     YouTubeError,
     get_youtube_client,
@@ -37,7 +40,7 @@ log = logging.getLogger(__name__)
 CHUNK_SECONDS = 75.0
 CHUNK_MAX_WORDS = 230
 META_DESCRIPTION_CHARS = 600
-BLOCK_ABORT_AFTER = 6  # consecutive blocked transcript requests before giving up
+BLOCK_ABORT_AFTER = 3  # consecutive refused requests before leaving YouTube alone
 
 Progress = Callable[[str, float, str], None]  # (stage, progress 0..1, message)
 
@@ -137,22 +140,48 @@ class _Fetched:
 
 
 def _is_block(exc: Exception) -> bool:
-    return type(exc).__name__ in {"IpBlocked", "RequestBlocked", "PoTokenRequired"}
+    return isinstance(exc, YouTubeBlocked) or type(exc).__name__ in {
+        "IpBlocked",
+        "RequestBlocked",
+        "PoTokenRequired",
+    }
 
 
-def _fetch_one(client: YouTubeClient, video_id: int, youtube_id: str, need_details: bool) -> _Fetched:
-    meta = None
-    if need_details:
-        try:
-            meta = client.fetch_video(youtube_id)
-        except Exception as exc:  # details are optional; the playlist entry is enough
-            log.info("details unavailable for %s: %s", youtube_id, exc)
+def _fetch_one(
+    client: YouTubeClient,
+    video_id: int,
+    youtube_id: str,
+    has_description: bool,
+    stop: threading.Event,
+) -> _Fetched:
+    """Fetch one video's transcript, and its details only if they are needed.
+
+    Each video costs one caption request. The heavier details request (the one
+    YouTube's bot detection watches most closely) is made only for videos without
+    captions, where the description is the only text there is to match on.
+    """
+    if stop.is_set():  # YouTube started refusing requests; leave this one for a retry
+        return _Fetched(video_id, None, None, "error", blocked=True)
     try:
         transcript = client.fetch_transcript(youtube_id)
-        return _Fetched(video_id, meta, transcript, "ok" if transcript else "none")
     except Exception as exc:
         log.info("transcript failed for %s: %s", youtube_id, type(exc).__name__)
-        return _Fetched(video_id, meta, None, "error", blocked=_is_block(exc))
+        return _Fetched(video_id, None, None, "error", blocked=_is_block(exc))
+    meta = None
+    if transcript is None and not has_description:
+        try:
+            meta = client.fetch_video(youtube_id)
+        except Exception as exc:
+            if _is_block(exc):
+                return _Fetched(video_id, None, None, "error", blocked=True)
+            log.info("details unavailable for %s: %s", youtube_id, exc)
+    return _Fetched(video_id, meta, transcript, "ok" if transcript else "none")
+
+
+def transcript_usable(transcript: Transcript) -> bool:
+    """Whether the embedding model can read this transcript's language."""
+    language = transcript.language.lower()
+    return get_embedder().multilingual or language.startswith("en") or language.endswith("→en")
 
 
 def sync_playlists(
@@ -220,62 +249,71 @@ def apply_fetched(db: Session, video: Video, fetched: _Fetched) -> None:
         video.published_at = meta.published_at
         video.thumbnail_url = meta.thumbnail_url or video.thumbnail_url
         chapters = meta.chapters
+    transcript = fetched.transcript
     video.transcript_status = fetched.status
-    video.transcript_language = fetched.transcript.language if fetched.transcript else ""
+    video.transcript_language = transcript.language if transcript else ""
+    if transcript and not transcript_usable(transcript):
+        # Captions exist, but in a language the current model cannot read.
+        video.transcript_status = "foreign"
+        transcript = None
     video.embedded_with = ""
-    video.chunks = build_chunks(video, chapters, fetched.transcript)
+    video.chunks = build_chunks(video, chapters, transcript)
 
 
 def fetch_videos(
     db: Session, project: Project, client: YouTubeClient, report: Progress, warnings: list[str]
-) -> None:
+) -> int:
+    """Fetch transcripts for videos that still need one. Returns how many videos
+    could not be fetched because YouTube refused the requests."""
+    wanted = ["pending", "error"]
+    if get_embedder().multilingual:
+        wanted.append("foreign")  # a multilingual model can use these after all
     pending = list(
         db.scalars(
             select(Video).where(
-                Video.project_id == project.id, Video.transcript_status.in_(("pending", "error"))
+                Video.project_id == project.id, Video.transcript_status.in_(wanted)
             )
         )
     )
     if not pending:
-        return
+        return 0
     by_id = {video.id: video for video in pending}
     done = 0
     consecutive_blocks = 0
-    aborted = False
+    stop = threading.Event()
     with ThreadPoolExecutor(max_workers=get_settings().transcript_workers) as pool:
         futures = [
             pool.submit(
-                _fetch_one,
-                client,
-                video.id,
-                video.youtube_id,
-                not video.description and video.like_count is None,
+                _fetch_one, client, video.id, video.youtube_id, bool(video.description), stop
             )
             for video in pending
         ]
-        try:
-            for future in as_completed(futures):
-                fetched = future.result()
-                apply_fetched(db, by_id[fetched.video_id], fetched)
-                done += 1
-                consecutive_blocks = consecutive_blocks + 1 if fetched.blocked else 0
-                if done % 5 == 0 or done == len(pending):
-                    db.commit()
-                report("transcripts", done / len(pending), f"Fetched {done} of {len(pending)} videos")
-                if consecutive_blocks >= BLOCK_ABORT_AFTER:
-                    aborted = True
-                    break
-        finally:
-            for future in futures:
-                future.cancel()
+        for future in as_completed(futures):
+            fetched = future.result()
+            apply_fetched(db, by_id[fetched.video_id], fetched)
+            done += 1
+            consecutive_blocks = consecutive_blocks + 1 if fetched.blocked else 0
+            if consecutive_blocks >= BLOCK_ABORT_AFTER:
+                stop.set()  # remaining videos return immediately, untouched by YouTube
+            if done % 5 == 0 or done == len(pending):
+                db.commit()
+            report("transcripts", done / len(pending), f"Fetched {done} of {len(pending)} videos")
     db.commit()
 
     statuses = [v.transcript_status for v in pending]
-    if aborted or statuses.count("error"):
+    blocked = statuses.count("error")
+    if blocked:
         warnings.append(
-            f"YouTube refused transcript requests for {statuses.count('error') + statuses.count('pending')} "
-            "videos (rate limit or blocked network). They are matched on title and description "
-            "for now; run the analysis again later to retry."
+            f"YouTube is temporarily limiting requests, so {blocked} "
+            f"video{'s are' if blocked != 1 else ' is'} matched on title only for now. "
+            "The analysis will retry them automatically."
+        )
+    foreign = sorted({v.transcript_language for v in pending if v.transcript_status == "foreign"})
+    if foreign:
+        warnings.append(
+            f"{statuses.count('foreign')} video(s) only have captions in {', '.join(foreign)}, "
+            "which the current English model cannot read; they are matched on title and "
+            "description. Set EMBEDDING_MODEL to a multilingual model to use those captions."
         )
     missing = statuses.count("none")
     if missing:
@@ -288,6 +326,7 @@ def fetch_videos(
         if not video.chunks:
             video.chunks = build_chunks(video, [], None)
     db.commit()
+    return blocked
 
 
 def read_documents(db: Session, project: Project, report: Progress, warnings: list[str]) -> None:
@@ -403,13 +442,19 @@ STAGE_SPANS = {
 }
 
 
+@dataclass
+class PipelineResult:
+    warnings: list[str] = field(default_factory=list)  # shown to the student
+    blocked_videos: int = 0  # videos YouTube refused; worth retrying later
+
+
 def run_pipeline(
     db: Session,
     project: Project,
     report: Callable[[str, float, str], None],
     options: dict | None = None,
-) -> list[str]:
-    """Run every stage for a project. Returns warnings to show the student."""
+) -> PipelineResult:
+    """Run every stage for a project."""
     options = options or {}
     warnings: list[str] = []
     client = get_youtube_client()
@@ -421,8 +466,8 @@ def run_pipeline(
     stage_report("playlists", 0, "Reading playlists")
     sync_playlists(db, project, client, stage_report, warnings)
 
-    stage_report("transcripts", 0, "Fetching video details and transcripts")
-    fetch_videos(db, project, client, stage_report, warnings)
+    stage_report("transcripts", 0, "Fetching video transcripts")
+    blocked = fetch_videos(db, project, client, stage_report, warnings)
 
     stage_report("documents", 0, "Reading your documents")
     read_documents(db, project, stage_report, warnings)
@@ -436,12 +481,14 @@ def run_pipeline(
     stage_report("matching", 0, "Matching topics to videos")
     ensure_topic_vectors(db, project, get_embedder(), force=True)
     rebuild_recommendations(db, project)
+    stage_report("matching", 0.6, "Linking past exam questions to videos")
+    link_questions(db, project)
     project.processed_at = utcnow()
     db.commit()
 
     if not db.scalar(select(Video.id).where(Video.project_id == project.id).limit(1)):
         warnings.append("No videos were found. Add a YouTube playlist to get recommendations.")
-    return list(dict.fromkeys(warnings))
+    return PipelineResult(warnings=list(dict.fromkeys(warnings)), blocked_videos=blocked)
 
 
 def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video:
@@ -455,9 +502,14 @@ def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video
         db.add(video)
         db.flush()
     if video.transcript_status in ("pending", "error"):
-        fetched = _fetch_one(client, video.id, youtube_id, need_details=True)
-        if fetched.meta is None and not video.title:
-            raise YouTubeError("That video could not be loaded from YouTube.")
+        try:
+            meta = client.fetch_video(youtube_id)  # a lone video has no playlist entry
+        except YouTubeBlocked:
+            raise
+        except YouTubeError as exc:
+            raise YouTubeError("That video could not be loaded from YouTube.") from exc
+        fetched = _fetch_one(client, video.id, youtube_id, True, threading.Event())
+        fetched.meta = meta
         apply_fetched(db, video, fetched)
         db.flush()
     embedder = get_embedder()

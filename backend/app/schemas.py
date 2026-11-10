@@ -102,6 +102,7 @@ class JobOut(Model):
     warnings: list[str]
     created_at: datetime
     finished_at: datetime | None
+    retry_at: datetime | None = None  # when an automatic retry is planned, if any
 
 
 class ProcessIn(BaseModel):
@@ -174,10 +175,11 @@ class TopicOut(BaseModel):
     position: int
     source: str
     status: Literal["matched", "gap", "covered"]
-    exam_hits: int
+    exam_hits: int  # past exam questions about this topic
     exam_weight: float
-    in_notes: bool
+    in_notes: bool  # the teacher's notes discuss it
     notes_snippet: str
+    importance: float  # 0..1: how much this topic matters for the exam
     primary: RecommendationOut | None = None
     alternates: list[RecommendationOut] = []
 
@@ -198,6 +200,31 @@ class PathOut(BaseModel):
     relevance_threshold: float
     stats: PathStats
     topics: list[TopicOut]
+
+
+class QuestionAnswer(BaseModel):
+    """Where a past exam question is explained."""
+
+    video: VideoOut
+    relevance: float
+    start_s: float
+    snippet: str  # transcript excerpt at that moment
+    url: str
+
+
+class QuestionOut(BaseModel):
+    id: int
+    text: str
+    source: str  # the exam paper it came from
+    topic_id: int | None
+    topic_name: str
+    answer: QuestionAnswer | None  # None when no video explains it
+
+
+class QuestionsOut(BaseModel):
+    total: int
+    answered: int
+    questions: list[QuestionOut]
 
 
 class TopicIn(BaseModel):

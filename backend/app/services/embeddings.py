@@ -28,6 +28,7 @@ class Embedder(Protocol):
     name: str
     dim: int
     calibration: tuple[float, float]  # cosine at relevance 0 and at relevance 1
+    multilingual: bool  # can it read transcripts that are not in English?
 
     def embed_passages(
         self, texts: list[str], on_progress: Callable[[int], None] | None = None
@@ -52,6 +53,10 @@ class FastEmbedEmbedder:
         self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
         self._lock = threading.Lock()
         self._is_bge_en = "bge" in model_name.lower() and "-en" in model_name.lower()
+        self.multilingual = any(
+            marker in model_name.lower()
+            for marker in ("multilingual", "embeddinggemma", "qwen3", "jina-embeddings-v3")
+        )
         self.name = f"fastembed:{model_name}"
         self.dim = int(self._model.embedding_size)
         # Measured with evaluation/run.py and on real lecture playlists: for BGE,
@@ -87,6 +92,7 @@ class HashEmbedder:
     name = "hash:v1"
     dim = 2048
     calibration = (0.03, 0.42)
+    multilingual = True  # word matching works in any language (within one language)
 
     def __init__(self) -> None:
         from sklearn.feature_extraction.text import HashingVectorizer

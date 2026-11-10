@@ -33,7 +33,10 @@ class Settings(BaseSettings):
     youtube_proxy: str | None = None  # optional: http(s) proxy for YouTube requests
     max_playlists_per_project: int = 10
     max_videos_per_playlist: int = 300
-    transcript_workers: int = 4
+    # YouTube blocks clients that send bursts of requests, so requests are spaced
+    # out (seconds between any two, with jitter) and few run in parallel.
+    youtube_request_interval: float = 1.0
+    transcript_workers: int = 2
     transcript_languages: str = "en,en-US,en-GB,en-IN"
 
     # --- analysis ---
@@ -62,12 +65,12 @@ class Settings(BaseSettings):
             url = "postgresql+psycopg://" + url[len("postgresql://") :]
         self.database_url = url
 
-        if self.environment == "production":
-            if self.secret_key == DEV_SECRET or len(self.secret_key) < 32:
-                raise ValueError(
-                    "SECRET_KEY must be set to a random value of at least 32 characters "
-                    "when ENVIRONMENT=production"
-                )
+        weak_secret = self.secret_key == DEV_SECRET or len(self.secret_key) < 32
+        if self.environment == "production" and weak_secret:
+            raise ValueError(
+                "SECRET_KEY must be set to a random value of at least 32 characters "
+                "when ENVIRONMENT=production"
+            )
         return self
 
     @property

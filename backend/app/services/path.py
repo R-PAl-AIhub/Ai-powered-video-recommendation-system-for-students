@@ -5,7 +5,17 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..models import Document, Feedback, Job, Playlist, Project, Recommendation, Topic, Video
+from ..models import (
+    Document,
+    Feedback,
+    Job,
+    Playlist,
+    Project,
+    Question,
+    Recommendation,
+    Topic,
+    Video,
+)
 from ..schemas import (
     DocumentOut,
     JobOut,
@@ -14,6 +24,9 @@ from ..schemas import (
     PlaylistOut,
     ProjectDetail,
     ProjectSummary,
+    QuestionAnswer,
+    QuestionOut,
+    QuestionsOut,
     RecommendationOut,
     TopicOut,
     VideoOut,
@@ -45,6 +58,60 @@ def video_out(video: Video, playlists: dict[int, Playlist]) -> VideoOut:
 def video_url(video: Video, start_s: float, playlists: dict[int, Playlist]) -> str:
     playlist = playlists.get(video.playlist_id) if video.playlist_id else None
     return watch_url(video.youtube_id, start_s, playlist.youtube_id if playlist else None)
+
+
+EXAM_SHARE = 0.75  # how much of a topic's importance comes from past papers
+
+
+def topic_importance(topic: Topic) -> float:
+    """How much a topic matters for the exam, 0..1.
+
+    Mostly how often past papers ask about it (relative to the most-asked topic),
+    plus a share for being covered in the teacher's notes. With no exam papers
+    uploaded, notes coverage is the only signal.
+    """
+    return round(EXAM_SHARE * topic.exam_weight + (1 - EXAM_SHARE) * float(topic.in_notes), 3)
+
+
+def build_questions(db: Session, project: Project) -> QuestionsOut:
+    """Past exam questions in paper order, each with where it is explained."""
+    playlists = {p.id: p for p in project.playlists}
+    rows = db.scalars(
+        select(Question)
+        .where(Question.project_id == project.id)
+        .order_by(Question.document_id, Question.position)
+        .options(
+            selectinload(Question.video),
+            selectinload(Question.topic),
+            selectinload(Question.document),
+        )
+    ).all()
+    questions = []
+    for row in rows:
+        answer = None
+        if row.video is not None:
+            answer = QuestionAnswer(
+                video=video_out(row.video, playlists),
+                relevance=row.relevance,
+                start_s=row.start_s,
+                snippet=row.snippet,
+                url=video_url(row.video, row.start_s, playlists),
+            )
+        questions.append(
+            QuestionOut(
+                id=row.id,
+                text=row.text,
+                source=row.document.filename,
+                topic_id=row.topic_id,
+                topic_name=row.topic.name if row.topic else "",
+                answer=answer,
+            )
+        )
+    return QuestionsOut(
+        total=len(questions),
+        answered=sum(1 for q in questions if q.answer is not None),
+        questions=questions,
+    )
 
 
 def build_path(db: Session, project: Project) -> PathOut:
@@ -103,6 +170,7 @@ def build_path(db: Session, project: Project) -> PathOut:
                 exam_weight=topic.exam_weight,
                 in_notes=topic.in_notes,
                 notes_snippet=topic.notes_snippet,
+                importance=topic_importance(topic),
                 primary=primary,
                 alternates=recommendations[1:] if primary else [],
             )
@@ -166,9 +234,20 @@ def _counts(db: Session, project: Project) -> dict[str, int]:
     }
 
 
-def _job_out(db: Session, project_id: int) -> JobOut | None:
-    job = db.scalar(select(Job).where(Job.project_id == project_id).order_by(Job.id.desc()))
-    return JobOut.model_validate(job) if job else None
+def job_out(db: Session, project_id: int) -> JobOut | None:
+    """The latest job, with the time of the planned automatic retry if there is one."""
+    job = db.scalar(
+        select(Job)
+        .where(Job.project_id == project_id, Job.status != "scheduled")
+        .order_by(Job.id.desc())
+    )
+    if job is None:
+        return None
+    out = JobOut.model_validate(job)
+    out.retry_at = db.scalar(
+        select(Job.run_after).where(Job.project_id == project_id, Job.status == "scheduled")
+    )
+    return out
 
 
 def project_summary(db: Session, project: Project) -> ProjectSummary:
@@ -179,7 +258,7 @@ def project_summary(db: Session, project: Project) -> ProjectSummary:
         description=project.description,
         created_at=project.created_at,
         processed_at=project.processed_at,
-        job=_job_out(db, project.id),
+        job=job_out(db, project.id),
         **_counts(db, project),
     )
 
@@ -221,7 +300,7 @@ def project_detail(db: Session, project: Project) -> ProjectDetail:
         relevance_threshold=project.relevance_threshold,
         topics_locked=project.topics_locked,
         stale=stale and has_sources,
-        job=_job_out(db, project.id),
+        job=job_out(db, project.id),
         playlists=[
             PlaylistOut(
                 id=p.id,

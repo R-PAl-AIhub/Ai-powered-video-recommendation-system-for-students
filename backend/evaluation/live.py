@@ -100,7 +100,7 @@ def main() -> int:
                 last["stage"] = stage
                 print(f"  [{time.monotonic() - started:6.1f}s] {stage}: {message}", flush=True)
 
-        warnings = run_pipeline(db, project, report, {"reextract": True})
+        warnings = run_pipeline(db, project, report, {"reextract": True}).warnings
         elapsed = time.monotonic() - started
         db.refresh(project)
         path = build_path(db, project)
@@ -162,7 +162,7 @@ def main() -> int:
                 unit = item.unit
                 print(f"\n[{unit or 'No unit'}]")
             flags = "".join(
-                [" EXAM×%d" % item.exam_hits if item.exam_hits else "", " NOTES" if item.in_notes else ""]
+                [f" EXAM×{item.exam_hits}" if item.exam_hits else "", " NOTES" if item.in_notes else ""]
             )
             if item.primary is None:
                 print(f"  GAP   {item.name}{flags}{stages(item.id) if args.raw else ''}")

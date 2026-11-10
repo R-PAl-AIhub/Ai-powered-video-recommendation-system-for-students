@@ -64,6 +64,12 @@ def _route_template(request: Request) -> str:
         return "unmatched"
     if template == "/{path:path}":
         return "spa"
+    # A route inside an included router only knows its own path; the prefix it is
+    # mounted under ("/api") is whatever precedes it in the requested path.
+    extra = len(request.url.path.strip("/").split("/")) - len(template.strip("/").split("/"))
+    if extra > 0:
+        prefix = "/".join(request.url.path.strip("/").split("/")[:extra])
+        return f"/{prefix}{template}"
     return template
 
 

@@ -34,7 +34,8 @@ THRESHOLD_RANGE = (-0.12, 0.20)  # how far feedback may move the threshold from 
 CANDIDATES_PER_TOPIC = 6
 MAX_ALTERNATES = 3
 EXAM_HIT = 0.5  # a past question at or above this score counts as "about" the topic
-NOTES_HIT = 0.5
+NOTES_HIT = 0.4  # lower than for videos: a mention in the notes is enough to flag a topic
+NOTES_PASSAGE_WORDS = 25  # about a sentence or two
 CLOSEST_FLOOR = 0.25
 SHORTLIST_SIZE = 6  # videos per topic passed to the cross-encoder
 SHORTLIST_FLOOR = 0.35  # embedding relevance needed to be shortlisted
@@ -132,10 +133,12 @@ def _document_passages(document: Document, embedder: Embedder) -> tuple[list[str
         if key in _passages:
             _passages.move_to_end(key)
             return _passages[key]
+    # Notes are cut into short passages: a topic is usually a paragraph or two, and
+    # a long passage about several topics matches none of them strongly.
     texts = (
         split_questions(document.text)
         if document.kind == "exam"
-        else chunk_paragraphs(document.text)
+        else chunk_paragraphs(document.text, target_words=NOTES_PASSAGE_WORDS)
     )
     value = (texts, embedder.embed_passages(texts))
     with _passages_lock:
@@ -260,9 +263,7 @@ def relearn_threshold(db: Session, project: Project) -> float:
 # ------------------------------------------------------------------ second stage
 
 _TITLE_STOP = frozenset(
-    """the and for with from into about what how why introduction intro part lecture lec chapter
-    unit video tutorial explained explanation basics basic concept concepts example examples
-    solved problem problems full course complete operating""".split()
+    ["the", "and", "for", "with", "from", "into", "about", "what", "how", "why", "introduction", "intro", "part", "lecture", "lec", "chapter", "unit", "video", "tutorial", "explained", "explanation", "basics", "basic", "concept", "concepts", "example", "examples", "solved", "problem", "problems", "full", "course", "complete", "operating"]
 )
 
 
@@ -375,8 +376,13 @@ def rerank_relevance(
                 cached.query_hash, cached.model, cached.score = digest, reranker.name, value
 
         for column, rows in zip(columns, chunk_rows, strict=True):
-            second = reranker.calibrate(max(known[r] for r in rows))
             first = float(relevance[row, column])
+            if not index.videos[column].english:
+                # The cross-encoder only reads English; a transcript in another
+                # language keeps its (multilingual) embedding relevance.
+                out[row, column] = first
+                continue
+            second = reranker.calibrate(max(known[r] for r in rows))
             out[row, column] = second * (1.0 - FIRST_STAGE_WEIGHT * (1.0 - first))
     return out
 

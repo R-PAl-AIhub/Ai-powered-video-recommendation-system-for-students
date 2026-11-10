@@ -43,6 +43,7 @@ class VideoInfo:
     view_count: int | None
     like_count: int | None
     has_transcript: bool
+    english: bool  # False when the transcript is in another language (not translated)
 
 
 @dataclass
@@ -190,6 +191,9 @@ def get_index(db: Session, project_id: int, embedder: Embedder) -> ProjectIndex:
                     view_count=video.view_count,
                     like_count=video.like_count,
                     has_transcript=video.transcript_status == "ok",
+                    english=video.transcript_status != "ok"
+                    or video.transcript_language.lower().startswith("en")
+                    or video.transcript_language.lower().endswith("→en"),
                 )
             )
             spans.append((len(texts), len(texts)))

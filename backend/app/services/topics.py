@@ -255,7 +255,8 @@ def parse_syllabus(text: str, limit: int = 250) -> list[ExtractedTopic]:
     """Parse a syllabus into ordered topics grouped by unit."""
     lines = text.replace("\r", "").split("\n")
     wrap_width = _wrap_width(lines)
-    has_units = sum(1 for line in lines if _UNIT_HEADING.match(line)) >= 2
+    # One heading is enough: a syllabus extract often covers a single unit.
+    has_units = any(_UNIT_HEADING.match(line) and len(line.split()) <= 14 for line in lines)
 
     # Numbered lines are unit headings only when plain body lines follow them
     # ("1. Thermodynamics" / "Laws of thermodynamics, entropy, ..."). Otherwise a
@@ -323,17 +324,10 @@ def parse_syllabus(text: str, limit: int = 250) -> list[ExtractedTopic]:
 # ------------------------------------------------------------ notes / exam papers
 
 _STOPWORDS = frozenset(
-    """a an the and or of in on at to for from by with without into over under between is are was
-    were be been being it its this that these those as if then than so such not no can may will
-    would should could we you they he she i our your their which what when where who how why do
-    does did done has have had also each any all some more most other one two three first second
-    using used use let us about above below there here very just only both either neither while
-    during after before again further once same own too up down out off per via etc""".split()
+    ["a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "from", "by", "with", "without", "into", "over", "under", "between", "is", "are", "was", "were", "be", "been", "being", "it", "its", "this", "that", "these", "those", "as", "if", "then", "than", "so", "such", "not", "no", "can", "may", "will", "would", "should", "could", "we", "you", "they", "he", "she", "i", "our", "your", "their", "which", "what", "when", "where", "who", "how", "why", "do", "does", "did", "done", "has", "have", "had", "also", "each", "any", "all", "some", "more", "most", "other", "one", "two", "three", "first", "second", "using", "used", "use", "let", "us", "about", "above", "below", "there", "here", "very", "just", "only", "both", "either", "neither", "while", "during", "after", "before", "again", "further", "once", "same", "own", "too", "up", "down", "out", "off", "per", "via", "etc"]
 )
 _NOISE_WORDS = frozenset(
-    """university college institute department semester credits marks hours code course outcomes
-    books book edition publication publications press syllabus exam examination question paper
-    answer time total page section group attempt""".split()
+    ["university", "college", "institute", "department", "semester", "credits", "marks", "hours", "code", "course", "outcomes", "books", "book", "edition", "publication", "publications", "press", "syllabus", "exam", "examination", "question", "paper", "answer", "time", "total", "page", "section", "group", "attempt"]
 )
 
 _QUESTION_START = re.compile(

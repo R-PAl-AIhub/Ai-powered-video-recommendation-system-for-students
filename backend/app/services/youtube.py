@@ -15,7 +15,10 @@ fetched directly.
 from __future__ import annotations
 
 import logging
+import random
 import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
@@ -34,6 +37,33 @@ _YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.c
 
 class YouTubeError(Exception):
     """A YouTube request failed in a way worth showing to the student."""
+
+
+class YouTubeBlocked(YouTubeError):
+    """YouTube is refusing requests from this address (rate limit or bot check)."""
+
+
+_pace_lock = threading.Lock()
+_next_slot = 0.0
+
+
+def pace() -> None:
+    """Wait for this process's next request slot.
+
+    One shared, jittered schedule for every YouTube request keeps the request
+    rate low and irregular; a burst of a few hundred requests in a minute is
+    enough for YouTube to block an address for hours.
+    """
+    global _next_slot
+    interval = get_settings().youtube_request_interval
+    if interval <= 0:
+        return
+    with _pace_lock:
+        now = time.monotonic()
+        wait = max(0.0, _next_slot - now)
+        _next_slot = max(now, _next_slot) + interval * random.uniform(0.8, 1.4)
+    if wait:
+        time.sleep(wait)
 
 
 @dataclass
@@ -138,10 +168,17 @@ def watch_url(video_id: str, start_s: float = 0, playlist_id: str | None = None)
 
 
 def _fetch_transcript(video_id: str) -> Transcript | None:
-    """Pick the best caption track: human-written English, then auto English,
-    then any track machine-translated to English, then whatever exists."""
+    """Fetch captions in whatever language the video has.
+
+    Order of preference: human-written English, auto-generated English, any other
+    language machine-translated to English by YouTube, and finally the original
+    language untouched (usable with a multilingual embedding model).
+    Raises YouTubeBlocked when YouTube refuses the request.
+    """
     from youtube_transcript_api import (
+        IpBlocked,
         NoTranscriptFound,
+        RequestBlocked,
         TranscriptsDisabled,
         VideoUnavailable,
         YouTubeTranscriptApi,
@@ -153,10 +190,13 @@ def _fetch_transcript(video_id: str) -> Transcript | None:
     api = YouTubeTranscriptApi(
         proxy_config=GenericProxyConfig(http_url=proxy, https_url=proxy) if proxy else None
     )
+    pace()
     try:
         tracks = list(api.list(video_id))
     except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable):
         return None
+    except (IpBlocked, RequestBlocked) as exc:
+        raise YouTubeBlocked("YouTube is temporarily refusing requests") from exc
     if not tracks:
         return None
 
@@ -169,19 +209,25 @@ def _fetch_transcript(video_id: str) -> Transcript | None:
     generated = chosen.is_generated if chosen else True
 
     fetched = None
-    if chosen is not None:
-        fetched = chosen.fetch()
-    else:
-        original = next((t for t in tracks if not t.is_generated), tracks[0])
-        if original.is_translatable:
-            try:
-                fetched = original.translate("en").fetch()
-                language, generated = f"{original.language_code}→en", True
-            except Exception as exc:  # translation is best-effort
-                log.info("translate failed for %s: %s", video_id, exc)
-        if fetched is None:
-            fetched = original.fetch()
-            language, generated = original.language_code, original.is_generated
+    try:
+        if chosen is not None:
+            fetched = chosen.fetch()
+        else:
+            original = next((t for t in tracks if not t.is_generated), tracks[0])
+            if original.is_translatable:
+                try:
+                    pace()
+                    fetched = original.translate("en").fetch()
+                    language, generated = f"{original.language_code}→en", True
+                except (IpBlocked, RequestBlocked):
+                    raise
+                except Exception as exc:  # translation is best-effort
+                    log.info("translate failed for %s: %s", video_id, exc)
+            if fetched is None:
+                fetched = original.fetch()
+                language, generated = original.language_code, original.is_generated
+    except (IpBlocked, RequestBlocked) as exc:
+        raise YouTubeBlocked("YouTube is temporarily refusing requests") from exc
 
     segments = [
         TranscriptSegment(start=float(s.start), duration=float(s.duration), text=s.text)
@@ -224,11 +270,16 @@ class YtDlpBackend:
     def _extract(self, url: str, **extra) -> dict:
         import yt_dlp
 
+        pace()
         try:
             with yt_dlp.YoutubeDL(self._options(**extra)) as ydl:
                 info = ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as exc:
             message = re.sub(r"\x1b\[[0-9;]*m", "", str(exc)).replace("ERROR: ", "")
+            if "not a bot" in message or "429" in message:
+                raise YouTubeBlocked(
+                    "YouTube is temporarily refusing requests from this server. Try again later."
+                ) from exc
             raise YouTubeError(message[:300]) from exc
         if not info:
             raise YouTubeError("YouTube returned no data")

@@ -1,0 +1,37 @@
+[project]
+name = "syllabus-video-recommender"
+version = "1.0.0"
+description = "Turns a syllabus and YouTube playlists into an ordered study path"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # line length is handled by the formatter where it can be
+    "B008",   # FastAPI's Depends() in argument defaults is the framework's idiom
+    "SIM108", # ternaries are not always clearer
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore:Using `httpx` with `starlette.testclient`",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/worker.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

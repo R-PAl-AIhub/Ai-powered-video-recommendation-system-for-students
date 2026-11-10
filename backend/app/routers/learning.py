@@ -14,6 +14,7 @@ from ..schemas import (
     AddVideoIn,
     FeedbackIn,
     PathOut,
+    QuestionsOut,
     SearchOut,
     SearchResult,
     TopicIn,
@@ -24,7 +25,7 @@ from ..schemas import (
     YouTubeSearchIn,
 )
 from ..services.matching import Match
-from ..services.path import build_path, video_out, video_url
+from ..services.path import build_path, build_questions, video_out, video_url
 from ..services.pipeline import ingest_single_video
 from ..services.recommend import (
     rebuild_recommendations,
@@ -63,6 +64,13 @@ def _refresh(db: Session, project: Project) -> PathOut:
 @router.get("/path", response_model=PathOut)
 def get_path(project: Project = Depends(owned_project), db: Session = Depends(get_db)):
     return build_path(db, project)
+
+
+@router.get("/questions", response_model=QuestionsOut)
+def get_questions(project: Project = Depends(owned_project), db: Session = Depends(get_db)):
+    """Past exam questions, each linked to its topic and to the video moment that
+    explains it."""
+    return build_questions(db, project)
 
 
 # ----------------------------------------------------------------------- topics

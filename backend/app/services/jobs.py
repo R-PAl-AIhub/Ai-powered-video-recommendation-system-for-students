@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 ACTIVE = ("queued", "running")
+RETRY_DELAYS_MINUTES = (30, 120, 360)  # waits before each automatic retry after a YouTube block
 
 
 def enqueue(db: Session, project: Project, options: dict | None = None) -> Job:
@@ -35,6 +36,8 @@ def enqueue(db: Session, project: Project, options: dict | None = None) -> Job:
     )
     if active:
         return active
+    # A manual run replaces any automatic retry that was waiting.
+    db.execute(delete(Job).where(Job.project_id == project.id, Job.status == "scheduled"))
     job = Job(project_id=project.id, options=options or {}, message="Waiting to start")
     db.add(job)
     db.commit()
@@ -42,7 +45,56 @@ def enqueue(db: Session, project: Project, options: dict | None = None) -> Job:
 
 
 def latest_job(db: Session, project_id: int) -> Job | None:
-    return db.scalar(select(Job).where(Job.project_id == project_id).order_by(Job.id.desc()))
+    """The most recent job that has run or is running (not a waiting retry)."""
+    return db.scalar(
+        select(Job)
+        .where(Job.project_id == project_id, Job.status != "scheduled")
+        .order_by(Job.id.desc())
+    )
+
+
+def next_retry(db: Session, project_id: int) -> Job | None:
+    return db.scalar(
+        select(Job).where(Job.project_id == project_id, Job.status == "scheduled").order_by(Job.id)
+    )
+
+
+def schedule_retry(db: Session, job: Job) -> Job | None:
+    """After YouTube refused some requests, plan another run for later.
+
+    Delays grow (30 min, 2 h, 6 h) and then stop, so a long block does not
+    turn into endless retries.
+    """
+    retries = int(job.options.get("auto_retry", 0))
+    if retries >= len(RETRY_DELAYS_MINUTES):
+        return None
+    retry = Job(
+        project_id=job.project_id,
+        status="scheduled",
+        stage="scheduled",
+        run_after=utcnow() + timedelta(minutes=RETRY_DELAYS_MINUTES[retries]),
+        options={"auto_retry": retries + 1},
+        message="Waiting to retry videos YouTube refused",
+    )
+    db.add(retry)
+    return retry
+
+
+def promote_due(db: Session) -> int:
+    """Move scheduled retries whose time has come onto the queue."""
+    due = db.scalars(
+        select(Job).where(Job.status == "scheduled", Job.run_after <= utcnow())
+    ).all()
+    promoted = 0
+    for job in due:
+        busy = db.scalar(
+            select(Job.id).where(Job.project_id == job.project_id, Job.status.in_(ACTIVE))
+        )
+        if busy is None:
+            job.status, job.stage, job.message = "queued", "queued", "Retrying"
+            promoted += 1
+    db.commit()
+    return promoted
 
 
 def claim_next(db: Session) -> Job | None:
@@ -116,10 +168,12 @@ def execute(db: Session, job: Job) -> None:
         project = db.get(Project, job.project_id)
         if project is None:
             raise RuntimeError("project no longer exists")
-        warnings = run_pipeline(db, project, report, job.options)
+        result = run_pipeline(db, project, report, job.options)
         job.status, job.stage, job.progress = "done", "done", 1.0
         job.message = "Your learning path is ready"
-        job.warnings = warnings
+        job.warnings = result.warnings
+        if result.blocked_videos:
+            schedule_retry(db, job)
     except Exception as exc:
         log.exception("job %s failed", job.id)
         db.rollback()
@@ -161,6 +215,7 @@ class Worker(threading.Thread):
                     elif time.monotonic() - last_recovery > 60:
                         last_recovery = time.monotonic()
                         recover_interrupted(db)
+                        promote_due(db)
             except Exception:
                 log.exception("job worker loop error")
             if not ran:

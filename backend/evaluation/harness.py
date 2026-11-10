@@ -147,6 +147,8 @@ class Report:
     starts_correct: int = 0
     unlabelled: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    exam_topics: list[str] = field(default_factory=list)  # "name×hits", most asked first
+    notes_topics: list[str] = field(default_factory=list)
 
     @property
     def top1_accuracy(self) -> float:
@@ -177,6 +179,8 @@ class Report:
             f"gap precision      {self.gap_precision:.3f}  ({self.true_gaps}/{self.predicted_gaps})",
             f"gap recall         {self.gap_recall:.3f}  ({self.true_gaps}/{self.labelled_gaps})",
             f"timestamp accuracy {self.start_accuracy:.3f}  ({self.starts_correct}/{self.starts_checked})",
+            f"asked in the exam  {', '.join(self.exam_topics) or '-'}",
+            f"found in the notes {', '.join(self.notes_topics) or '-'}",
         ]
         lines += [f"  miss: {error}" for error in self.errors]
         lines += [f"  unlabelled topic: {name}" for name in self.unlabelled]
@@ -191,6 +195,9 @@ def evaluate(db: Session, backend_name: str) -> Report:
         run_pipeline(db, project, lambda *_: None)
         db.refresh(project)
         report = Report(backend=backend_name, topics=len(project.topics))
+        asked = sorted((t for t in project.topics if t.exam_hits), key=lambda t: -t.exam_hits)
+        report.exam_topics = [f"{t.name}×{t.exam_hits}" for t in asked]
+        report.notes_topics = [t.name for t in project.topics if t.in_notes]
         for topic in project.topics:
             expected = os_course.EXPECTED.get(topic.name)
             if expected is None:

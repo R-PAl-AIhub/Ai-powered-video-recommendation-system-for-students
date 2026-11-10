@@ -29,7 +29,7 @@ from ..schemas import (
 from ..services import jobs
 from ..services.documents import ALLOWED_EXTENSIONS, DocumentError, clean_text, sniff_kind
 from ..services.matching import invalidate_index
-from ..services.path import document_out, project_detail, project_summary
+from ..services.path import document_out, job_out, project_detail, project_summary
 from ..services.recommend import rebuild_recommendations
 from ..services.youtube import parse_playlist_id
 
@@ -273,5 +273,4 @@ def process_project(
 
 @router.get("/{project_id}/job", response_model=JobOut | None)
 def get_job(project: Project = Depends(owned_project), db: Session = Depends(get_db)):
-    job = jobs.latest_job(db, project.id)
-    return JobOut.model_validate(job) if job else None
+    return job_out(db, project.id)
