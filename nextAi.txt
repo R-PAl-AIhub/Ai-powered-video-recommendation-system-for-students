@@ -1,0 +1,64 @@
+PROMPT FOR THE NEXT AI (copy everything below this line and paste it)
+======================================================================
+
+You are continuing work on my project "Waypoint" (AI video recommendations for
+students). Work only inside this project folder. The repository is
+github.com/R-PAl-AIhub/Ai-powered-video-recommendation-system-for-students, branch main.
+
+READ FIRST, IN THIS ORDER
+1. docs/Project Map.md
+2. docs/Progress.md  (the single source of truth: read "Resume here" and the
+   section "Finishing pass"; it lists every task with its status)
+3. The docs note for the part you are about to change.
+
+MY GOAL
+Everything must be finished and verified so that I only have to double-click
+start-waypoint.bat and sign up. The read-only demo is already online at
+https://r-pal-aihub.github.io/Ai-powered-video-recommendation-system-for-students/
+
+WHAT TO DO
+Continue the "Finishing pass" list in docs/Progress.md from the first item that is
+not marked done. Do the items in order. Do not redo items marked done.
+
+RULES
+- After EVERY change: update docs/Progress.md (status of the item, a line in the
+  checkpoint log) and any other docs note the change affects, then update the
+  "CURRENT STATE" block at the bottom of this file (nextAi.txt), then commit and
+  push to main:
+      git add -A
+      git commit -m "Short summary" -m "What changed and what was verified."
+      git push origin main
+- Before committing: if backend code changed, run in backend/
+      .venv\Scripts\python -m pytest -q
+      .venv\Scripts\python -m ruff check .
+  and the evaluation gate (see docs/Evaluation and Testing.md). If frontend code
+  changed, run "npm run build" in frontend/, and republish the demo with
+      bash frontend/deploy-pages.sh        (from Git Bash)
+- This PC is short of memory. Never leave the server (uvicorn) running after a
+  test. Stop it when you finish checking.
+- Say honestly what was tested and what was not. Do not mark an item done unless
+  you ran it and saw it work.
+- Do not put my name, e-mail or any secret in the repository. Never commit
+  *.docx, .env, backend/data/ or node_modules.
+- Design: no generic "AI-looking" UI. Keep the existing distinctive 3D style.
+- The GitHub "gh" tool is not installed; use curl on api.github.com for CI results.
+- Things that are impossible here, record as such, do not fake them: YouTube watch
+  time (YouTube does not give it); the YouTube Data API path without an API key;
+  Docker on this PC (no Docker installed; CI builds the image).
+
+USEFUL FACTS
+- Backend: backend/ (Python, FastAPI). Virtual environment: backend/.venv.
+  Start by hand: cd backend ; .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  It serves the built frontend from frontend/dist at http://127.0.0.1:8000.
+- Frontend: frontend/ (React, Vite, three.js). Build: npm run build.
+- My real database is backend/data/app.db (created on first start; I sign up once).
+  The demo database is backend/data/demo.db, account demo@example.com /
+  demo-password-1. To test with it:
+      DATABASE_URL=sqlite:///./data/demo.db DATA_DIR=./data .venv/Scripts/python -m uvicorn app.main:app --port 8000
+- Keep this file up to date so another AI can take over at any moment.
+
+CURRENT STATE (updated at every checkpoint)
+- Date: 2026-11-11
+- Done: app built; demo online; start-waypoint.bat, README.md written and pushed.
+- In progress: the "Finishing pass" in docs/Progress.md, starting at item 1.
+- Next step: see the first item not marked done in "Finishing pass".

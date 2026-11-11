@@ -29,7 +29,30 @@ the README is written. What remains is optional (see "Resume here").
   Docker and Render as optional, republishing the demo). `STATUS.md` removed.
 - D. This note updated, committed and pushed.
 
-**What is left, none of it asked for by the owner yet:**
+**Owner's instruction (2026-11-11, newest): finish everything, so that the owner only
+has to double-click and sign up. Reflect every change in these notes, and keep
+`nextAi.txt` (root) current: it is a copy-paste prompt for another AI to continue.**
+
+### Finishing pass
+
+Do in order. Mark each item done here, with what was verified, before moving on.
+
+1. [ ] Check the first CI run; fix what fails (lint, SQLite tests, PostgreSQL tests,
+   evaluation gate, frontend build, Docker image to GHCR). This is the only way
+   PostgreSQL and the Docker image get tested: there is no Docker on this PC.
+2. [ ] Unit tests for `documents.py`, `ocr.py`, `jobs.py`, `youtube.py`.
+3. [ ] Run the full app as `start-waypoint.bat` does (fresh `app.db`): sign up,
+   make a course, add a playlist and a syllabus, analyse, open the path. Include
+   file upload through the screen and topic reorder by drag. Stop the server after.
+4. [ ] More real playlists in other subjects, and one non-English playlist.
+5. [ ] Click through the live demo in a browser.
+6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
+   `nextAi.txt` final, everything pushed.
+
+Cannot be done here (recorded, not faked): YouTube Data API path (no key), YouTube
+watch time (not offered by YouTube), Docker run on this PC.
+
+**Older list (superseded by the finishing pass):**
 
 1. The owner double-clicks `start-waypoint.bat` and signs up once (`backend/data/app.db`).
 2. The first CI run (`ci.yml`, `7c94784`) was never checked; the PostgreSQL job has
