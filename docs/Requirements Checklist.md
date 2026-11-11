@@ -15,7 +15,7 @@ Last checked: 2026-11-11.
 
 | Requirement | Status | Evidence / note |
 |---|---|---|
-| Tell the student exactly what to study: "from this timestamp to this timestamp" | Not built | Only the start second is stored and shown today. To add: end second per recommendation, shown as a range, and the player stops at the end. |
+| Tell the student exactly what to study: "from this timestamp to this timestamp" | Done | `end_s` on recommendations and questions (migration `0002`), from the end of the on-topic run in `locate()`; shown as "study 2:43 to 6:10" (or "to the end") in the path, questions and search; the player stops at the end. Test: `test_recommendation_gives_a_study_range`. |
 
 ## Inputs and preprocessing
 
@@ -43,7 +43,7 @@ Last checked: 2026-11-11.
 | Vector embeddings (BERT / sentence-transformers) for topic-to-transcript similarity | Done | Same as above |
 | Topic modelling (LDA) on transcripts and documents | Not built | Embeddings are used for matching. LDA could map the playlist's latent topics (for example, a "topics in your playlists" view and coverage check). |
 | TF-IDF cosine similarity between topic queries and transcripts | Done | Part of stage 1 |
-| Find which time segments of a video cover a topic | Partial | Start second found and linked; end second not yet (see the owner's addition above). |
+| Find which time segments of a video cover a topic | Done | Start and end second per recommendation; see the owner's addition above. |
 | A threshold for "relevant" | Done | Default 0.5, learned from feedback (`learn_threshold`) |
 
 ## Sequencing and ranking
@@ -71,7 +71,7 @@ Last checked: 2026-11-11.
 | Manual topic search returning a sequenced list (by subtopic or depth) | Done | Search tab; results grouped by playlist in playlist order; browser-checked |
 | "Video not found for [Topic]" in search | Done | Browser-checked |
 | Feedback: Correct, Wrong topic, Irrelevant | Done | Path tab; tested and browser-checked, with undo |
-| Feedback: "Already in my playlist" / "Video exists in my playlist" | Partial | Same effect exists (topic marked covered) but labelled "I know this". |
+| Feedback: "Already in my playlist" / "Video exists in my playlist" | Done | Button labelled "Already in my playlist"; marks the topic covered and takes it off the path. |
 | Feedback updates data and adjusts matching thresholds | Done | Threshold re-learned on every feedback; tested |
 
 ## Web app
@@ -83,7 +83,7 @@ Last checked: 2026-11-11.
 | Upload playlists, syllabus PDFs or text, scanned notes and papers | Partial | Built; uploads of real PDFs and images not yet run end to end (see OCR row) |
 | Backend processing: OCR, PDF parsing, transcripts, NLP, matching, sequencing | Done | Job queue with progress; real playlist run |
 | Display: titles, links, topic labels, missing topics marked, search box | Done | Browser-checked |
-| Each video shows thumbnail, title and a short summary | Partial | Thumbnail and title shown; a reason is shown instead of a content summary. The snippet exists in the API but is not displayed. |
+| Each video shows thumbnail, title and a short summary | Done | Thumbnail, title, a transcript excerpt from the matched stretch, and the reason it was picked. |
 | Warning icon on missing topics | Done | |
 | Drag-and-drop reordering; checkboxes or buttons for feedback | Done | Topics tab; feedback buttons |
 | Videos without captions transcribed by speech recognition (ASR) | Not built | Matched on title and description instead. Option: faster-whisper; needs audio downloads, the request pattern YouTube blocks most, so it must be paced. |

@@ -235,6 +235,7 @@ def _result(db: Session, project: Project, match: Match, playlists: dict) -> Sea
         video=video_out(video, playlists),
         relevance=round(match.relevance, 4),
         start_s=match.start_s,
+        end_s=match.end_s,
         coverage_s=match.coverage_s,
         snippet=match.snippet,
         url=video_url(video, match.start_s, playlists),

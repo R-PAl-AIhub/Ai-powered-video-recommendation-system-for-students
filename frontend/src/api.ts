@@ -96,6 +96,7 @@ export interface Recommendation {
   quality: number;
   score: number;
   start_s: number;
+  end_s: number; // 0 = to the end of the video
   coverage_s: number;
   snippet: string;
   reasons: string[];
@@ -141,6 +142,7 @@ export interface QuestionAnswer {
   video: Video;
   relevance: number;
   start_s: number;
+  end_s: number;
   snippet: string;
   url: string;
 }
@@ -164,6 +166,7 @@ export interface SearchResult {
   video: Video;
   relevance: number;
   start_s: number;
+  end_s: number;
   coverage_s: number;
   snippet: string;
   url: string;

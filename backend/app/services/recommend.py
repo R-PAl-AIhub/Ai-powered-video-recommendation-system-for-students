@@ -544,6 +544,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
                     quality=round(quality[column], 4),
                     score=round(candidate.score, 4),
                     start_s=match.start_s,
+                    end_s=match.end_s,
                     coverage_s=match.coverage_s,
                     snippet=match.snippet,
                     reasons=reasons,

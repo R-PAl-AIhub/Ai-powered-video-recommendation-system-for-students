@@ -26,6 +26,7 @@ LEX_FULL = 0.30  # TF-IDF cosine regarded as a complete lexical match
 LEX_BOOST = 0.35  # how far a lexical match can lift a weak semantic score
 HOT_FRACTION = 0.75  # chunks within this fraction of the best chunk count as "on topic"
 HOT_FLOOR = 0.35
+OUTRO_SECONDS = 60  # an end this close to the video's end means "to the end"
 INTRO_SECONDS = 90  # a topic that starts this early is treated as starting at 0:00
 BEST_CHUNK_WEIGHT = 0.7  # share of the single best transcript chunk in a video's score
 AGREEMENT_BONUS = 0.3  # lift when both the transcript and the title match
@@ -68,6 +69,7 @@ class Match:
     video_id: int
     relevance: float
     start_s: float = 0.0
+    end_s: float = 0.0  # where the topic ends; 0 means the end of the video
     coverage_s: float = 0.0
     snippet: str = ""
     via: str = "transcript"  # transcript | title
@@ -266,6 +268,15 @@ def tidy_snippet(text: str, limit: int = 240) -> str:
     return cut.rstrip(",;:") + "…"
 
 
+def study_end(index: ProjectIndex, column: int, last_row: int) -> float:
+    """End of the on-topic stretch, or 0 when it runs to (nearly) the end of the video."""
+    end = float(index.ends[last_row])
+    duration = index.videos[column].duration_s
+    if duration and end >= duration - OUTRO_SECONDS:
+        return 0.0
+    return end
+
+
 def locate(index: ProjectIndex, column: int, chunk_scores: np.ndarray, relevance: float) -> Match:
     """Find where in the video the topic is covered, and a snippet to show."""
     start, end = index.spans[column]
@@ -285,6 +296,9 @@ def locate(index: ProjectIndex, column: int, chunk_scores: np.ndarray, relevance
     run_start = best
     while run_start > 0 and hot[run_start - 1]:
         run_start -= 1
+    run_end = best
+    while run_end + 1 < len(hot) and hot[run_end + 1]:
+        run_end += 1
     row = start + 1
     start_s = float(index.starts[row + run_start])
     if start_s <= INTRO_SECONDS:
@@ -295,6 +309,7 @@ def locate(index: ProjectIndex, column: int, chunk_scores: np.ndarray, relevance
         video_id=video.id,
         relevance=relevance,
         start_s=start_s,
+        end_s=study_end(index, column, row + run_end),
         coverage_s=coverage,
         snippet=tidy_snippet(index.texts[row + best]),
         via=via,

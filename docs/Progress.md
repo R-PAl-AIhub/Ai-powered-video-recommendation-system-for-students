@@ -19,14 +19,14 @@ the idea document is the sole source of truth; every point must be built). Then
 Deployment (to-do item 3). Work in this order, updating the checklist row, this
 note and committing after each:
 
-1. **Study ranges (owner's explicit request):** each recommendation gets an end
+1. ~~**Study ranges**~~ (done 2026-11-11). Was: each recommendation gets an end
    second as well as a start: add `end_s` to `Recommendation` (and `Question`) via
    a new Alembic revision; compute it in `locate()` in `services/matching.py` (end
    of the run of on-topic chunks); show "Study 12:34 to 18:02" in `PathRow`,
    `QuestionCard` and search results; pass `end` to the YouTube embed in
    `embedUrl()` so the player stops there.
-2. **Short summary per video** in `PathRow` (the snippet already in the API).
-3. **Relabel "I know this" to "Already in my playlist"** (the document's wording).
+2. ~~**Short summary per video**~~ (done) in `PathRow` (the snippet already in the API).
+3. ~~**Relabel "I know this" to "Already in my playlist"**~~ (done) (the document's wording).
 4. **Fuzzy ranking:** add recency (`published_at`) and comment volume
    (`comment_count`) to `services/fuzzy.py`; comment sentiment from Data API
    `commentThreads` when `YOUTUBE_API_KEY` is set. Watch time is not available
@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Study ranges (start and end second, migration 0002, player stops at the end), transcript summary on each path entry, "Already in my playlist" label. 39 tests pass; frontend builds. |
 | 2026-11-11 | (this commit) | 3D look across the whole site (`src/depth.tsx`): card tilt with depth layers, perspective floor, landing coverflow, 3D scene on sign-in. Verified in the browser: floor renders; tilt activates with layers applied under a motion-allowed setting. Found the owner's Windows has animation effects off, so motion stays still there by design. |
 | 2026-11-11 | `5071257` | Alembic migrations: initial revision, startup upgrade, adoption of pre-migration databases, 4 tests. 38 tests pass, lint clean. |
 | 2026-11-11 | `cb5ad50` | Browser check finished: Focus, Search, Topics, Sources tabs; phone width 390 with emulation; light theme. Fixed the landing nav overflowing on phones (a "hidden" class lost to the button's own inline-flex). |

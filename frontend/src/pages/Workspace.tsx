@@ -23,7 +23,7 @@ import {
   type ProjectDetail,
   type Video,
 } from "../api";
-import { clock, cx, embedUrl, fileSize, plural, until } from "../format";
+import { cx, embedUrl, fileSize, plural, studyRange, until } from "../format";
 import { Button, Dialog, Field, IconButton, Notice, Skeleton, TextArea } from "../ui";
 import { FocusTab, QuestionsTab, SearchTab, TopicsTab } from "./MoreTabs";
 import { PathTab } from "./PathTab";
@@ -33,6 +33,7 @@ import { AppBar } from "./Projects";
 export interface PlayItem {
   video: Video;
   startS: number;
+  endS?: number; // the player stops here
   label: string;
 }
 
@@ -93,7 +94,7 @@ function Player({
           <div className="aspect-video overflow-hidden rounded-field bg-black">
             <iframe
               key={`${item.video.youtube_id}-${item.startS}`}
-              src={embedUrl(item.video.youtube_id, item.startS)}
+              src={embedUrl(item.video.youtube_id, item.startS, item.endS ?? 0)}
               title={item.video.title}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               className="size-full"
@@ -104,7 +105,7 @@ function Player({
               <p className="truncate font-medium">{item.video.title}</p>
               <p className="text-[13px] text-faint">
                 {item.video.channel}
-                {item.startS >= 1 ? `, from ${clock(item.startS)}` : ""}
+                {item.startS >= 1 || (item.endS ?? 0) > 0 ? `, study ${studyRange(item.startS, item.endS ?? 0)}` : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

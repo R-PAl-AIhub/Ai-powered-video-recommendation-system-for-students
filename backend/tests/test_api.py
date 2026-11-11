@@ -488,3 +488,13 @@ def test_responses_carry_security_headers_and_a_request_id(client):
     assert response.headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
     assert response.headers["x-request-id"]
+
+
+def test_recommendation_gives_a_study_range(client, course):
+    """The student is told what to watch: from one second to another."""
+    pick = topic_by_name(path_of(client, course), "Critical section problem")["primary"]
+    assert pick["video"]["youtube_id"] == "osSync00006"
+    assert pick["start_s"] < pick["end_s"] < pick["video"]["duration_s"]
+    questions = client.get(f"/api/projects/{course}/questions").json()["questions"]
+    answered = [q["answer"] for q in questions if q["answer"]]
+    assert all("end_s" in answer for answer in answered)

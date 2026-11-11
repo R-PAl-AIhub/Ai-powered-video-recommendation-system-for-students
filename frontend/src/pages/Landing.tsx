@@ -288,9 +288,9 @@ const FEEDBACK = [
   },
   {
     key: "known",
-    label: "I know this",
+    label: "Already in my playlist",
     icon: CheckCircle,
-    effect: "Topic taken off your path. Your remaining watch time drops.",
+    effect: "You have this covered elsewhere. The topic leaves your path and your watch time drops.",
   },
   {
     key: "irrelevant",

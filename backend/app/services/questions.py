@@ -80,7 +80,7 @@ def link_questions(db: Session, project: Project) -> int:
 
     # Where is each question answered? Same two-stage search as a typed query.
     index = get_index(db, project.id, embedder)
-    answers: list[tuple[int, float, float, str] | None] = [None] * len(items)
+    answers: list[tuple[int, float, float, float, str] | None] = [None] * len(items)
     if not index.empty:
         scores = hybrid_scores(
             embedder, vectors, texts, index.matrix, index.vectorizer, index.tfidf
@@ -102,7 +102,7 @@ def link_questions(db: Session, project: Project) -> int:
                 if index.videos[column].id in blocked:
                     continue
                 match = locate(index, column, scores[row], float(relevance[row, column]))
-                answers[row] = (match.video_id, match.relevance, match.start_s, match.snippet)
+                answers[row] = (match.video_id, match.relevance, match.start_s, match.end_s, match.snippet)
                 break
 
     for row, (document_id, position, text) in enumerate(items):
@@ -117,7 +117,8 @@ def link_questions(db: Session, project: Project) -> int:
                 video_id=answer[0] if answer else None,
                 relevance=round(answer[1], 4) if answer else 0.0,
                 start_s=answer[2] if answer else 0.0,
-                snippet=answer[3] if answer else "",
+                end_s=answer[3] if answer else 0.0,
+                snippet=answer[4] if answer else "",
             )
         )
     db.flush()

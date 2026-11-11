@@ -161,6 +161,7 @@ class RecommendationOut(BaseModel):
     quality: float
     score: float
     start_s: float
+    end_s: float  # 0 = to the end of the video
     coverage_s: float
     snippet: str
     reasons: list[str]
@@ -208,6 +209,7 @@ class QuestionAnswer(BaseModel):
     video: VideoOut
     relevance: float
     start_s: float
+    end_s: float
     snippet: str  # transcript excerpt at that moment
     url: str
 
@@ -259,6 +261,7 @@ class SearchResult(BaseModel):
     video: VideoOut
     relevance: float
     start_s: float
+    end_s: float
     coverage_s: float
     snippet: str
     url: str

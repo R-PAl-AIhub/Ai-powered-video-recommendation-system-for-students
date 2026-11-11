@@ -33,7 +33,13 @@ function video(
   };
 }
 
-function pick(v: Video, startS: number, reason: string, snippet: string): Recommendation {
+function pick(
+  v: Video,
+  startS: number,
+  reason: string,
+  snippet: string,
+  endS = 0,
+): Recommendation {
   return {
     video: v,
     rank: 0,
@@ -41,6 +47,7 @@ function pick(v: Video, startS: number, reason: string, snippet: string): Recomm
     quality: 0.9,
     score: 0.96,
     start_s: startS,
+    end_s: endS,
     coverage_s: 300,
     snippet,
     reasons: [reason],
@@ -165,6 +172,7 @@ export const sampleQuestions: Question[] = [
       video: v.semaphores,
       relevance: 0.95,
       start_s: 0,
+      end_s: 0,
       snippet: "a semaphore is simply a variable which is non-negative and shared between threads",
       url: `https://www.youtube.com/watch?v=${v.semaphores.youtube_id}`,
     },
@@ -179,6 +187,7 @@ export const sampleQuestions: Question[] = [
       video: v.roundRobin,
       relevance: 0.98,
       start_s: 579,
+      end_s: 0,
       snippet: "now let us calculate the waiting time and the turnaround time for each of these processes",
       url: `https://www.youtube.com/watch?v=${v.roundRobin.youtube_id}&t=579s`,
     },
@@ -193,6 +202,7 @@ export const sampleQuestions: Question[] = [
       video: v.critical,
       relevance: 0.96,
       start_s: 0,
+      end_s: 0,
       snippet: "",
       url: `https://www.youtube.com/watch?v=${v.critical.youtube_id}`,
     },

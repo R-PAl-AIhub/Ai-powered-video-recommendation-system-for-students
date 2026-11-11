@@ -49,7 +49,12 @@ export function playQueue(topics: Topic[]): { items: PlayItem[]; indexOf: Map<nu
   for (const topic of topics) {
     if (topic.status === "matched" && topic.primary) {
       indexOf.set(topic.id, items.length);
-      items.push({ video: topic.primary.video, startS: topic.primary.start_s, label: topic.name });
+      items.push({
+        video: topic.primary.video,
+        startS: topic.primary.start_s,
+        endS: topic.primary.end_s,
+        label: topic.name,
+      });
     }
   }
   return { items, indexOf };
@@ -58,7 +63,7 @@ export function playQueue(topics: Topic[]): { items: PlayItem[]; indexOf: Map<nu
 const FEEDBACK: { kind: FeedbackKind; label: string; done: string; icon: typeof ThumbsUp }[] = [
   { kind: "correct", label: "Correct", done: "You confirmed this video", icon: ThumbsUp },
   { kind: "wrong_topic", label: "Wrong topic", done: "", icon: Swap },
-  { kind: "already_covered", label: "I know this", done: "", icon: CheckCircle },
+  { kind: "already_covered", label: "Already in my playlist", done: "", icon: CheckCircle },
   { kind: "irrelevant", label: "Irrelevant", done: "", icon: Prohibit },
 ];
 
@@ -76,7 +81,7 @@ const SENT_TEXT: Record<FeedbackKind, string> = {
   correct: "Video confirmed for",
   wrong_topic: "Video removed from",
   irrelevant: "Video removed from the course, including",
-  already_covered: "Marked as known:",
+  already_covered: "Marked as already in your playlist:",
 };
 
 function UndoBar({
@@ -222,7 +227,14 @@ function MatchedControls({
               disabled={disabled}
               onUse={() => send("correct", alternate.video.id)}
               onPlay={() =>
-                play([{ video: alternate.video, startS: alternate.start_s, label: topic.name }])
+                play([
+                  {
+                    video: alternate.video,
+                    startS: alternate.start_s,
+                    endS: alternate.end_s,
+                    label: topic.name,
+                  },
+                ])
               }
             />
           ))}

@@ -94,6 +94,7 @@ def build_questions(db: Session, project: Project) -> QuestionsOut:
                 video=video_out(row.video, playlists),
                 relevance=row.relevance,
                 start_s=row.start_s,
+                end_s=row.end_s,
                 snippet=row.snippet,
                 url=video_url(row.video, row.start_s, playlists),
             )
@@ -139,6 +140,7 @@ def build_path(db: Session, project: Project) -> PathOut:
                 quality=r.quality,
                 score=r.score,
                 start_s=r.start_s,
+                end_s=r.end_s,
                 coverage_s=r.coverage_s,
                 snippet=r.snippet,
                 reasons=list(r.reasons or []),

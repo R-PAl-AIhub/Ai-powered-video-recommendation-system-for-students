@@ -128,6 +128,7 @@ export function QuestionsTab({ project, play }: TabProps) {
                         {
                           video: question.answer!.video,
                           startS: question.answer!.start_s,
+                          endS: question.answer!.end_s,
                           label: question.text,
                         },
                       ])
@@ -154,7 +155,7 @@ function ResultRow({ result, onPlay }: { result: SearchResult; onPlay: () => voi
         <Thumb video={result.video} className="w-32 shrink-0 sm:w-40" />
         <span className="flex min-w-0 flex-col gap-1">
           <span className="line-clamp-2 text-[15px] font-medium text-ink">{result.video.title}</span>
-          <VideoMeta video={result.video} startS={result.start_s} />
+          <VideoMeta video={result.video} startS={result.start_s} endS={result.end_s} />
           {result.snippet ? (
             <span className="line-clamp-2 text-[13px] leading-relaxed text-soft">
               “{result.snippet}”
@@ -184,7 +185,12 @@ export function SearchTab({ project, busy, play }: TabProps) {
   const outcome = search.data;
   const open = (results: SearchResult[], index: number) =>
     play(
-      results.map((r) => ({ video: r.video, startS: r.start_s, label: outcome?.query ?? "" })),
+      results.map((r) => ({
+        video: r.video,
+        startS: r.start_s,
+        endS: r.end_s,
+        label: outcome?.query ?? "",
+      })),
       index,
     );
 

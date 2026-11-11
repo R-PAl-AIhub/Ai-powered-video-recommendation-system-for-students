@@ -43,10 +43,17 @@ export function until(iso: string): string {
 }
 
 /** The embeddable player address for a video, starting at a given second. */
-export function embedUrl(youtubeId: string, startSeconds: number): string {
+export function embedUrl(youtubeId: string, startSeconds: number, endSeconds = 0): string {
   const params = new URLSearchParams({ rel: "0", modestbranding: "1", autoplay: "1" });
   if (startSeconds >= 1) params.set("start", String(Math.floor(startSeconds)));
+  if (endSeconds > startSeconds) params.set("end", String(Math.ceil(endSeconds)));
   return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params}`;
+}
+
+/** What to watch: "2:43 to 6:10", or "2:43 to the end" when the topic runs on. */
+export function studyRange(startS: number, endS: number): string {
+  const from = startS >= 1 ? clock(startS) : "0:00";
+  return endS > startS ? `${from} to ${clock(endS)}` : `${from} to the end`;
 }
 
 export function cx(...parts: Array<string | false | null | undefined>): string {

@@ -4,7 +4,7 @@ import { ArrowBendDownRight, Check, Notebook, Play, Target, Warning } from "@pho
 import type { ReactNode } from "react";
 
 import type { Question, Topic, Video } from "../api";
-import { clock, compact, cx, plural } from "../format";
+import { clock, compact, cx, plural, studyRange } from "../format";
 import { Layer, Tilt } from "../depth";
 import { Chip } from "../ui";
 
@@ -21,14 +21,14 @@ export function Thumb({ video, className }: { video: Video; className?: string }
   );
 }
 
-export function VideoMeta({ video, startS }: { video: Video; startS?: number }) {
+export function VideoMeta({ video, startS, endS = 0 }: { video: Video; startS?: number; endS?: number }) {
   const parts = [video.channel, clock(video.duration_s)];
   if (video.view_count) parts.push(`${compact(video.view_count)} views`);
   return (
     <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-faint">
       <span>{parts.filter(Boolean).join(", ")}</span>
-      {startS !== undefined && startS >= 1 ? (
-        <span className="tabular font-mono text-xs text-accent-ink">starts at {clock(startS)}</span>
+      {startS !== undefined && (startS >= 1 || endS > 0) ? (
+        <span className="tabular font-mono text-xs text-accent-ink">study {studyRange(startS, endS)}</span>
       ) : null}
     </p>
   );
@@ -116,8 +116,8 @@ export function PathRow({
             className="flex items-center gap-2 text-left text-sm text-soft transition-colors hover:text-ink"
           >
             <ArrowBendDownRight size={16} className="shrink-0 text-accent-ink" aria-hidden />
-            <span className="min-w-0 truncate">Same video, continues at</span>
-            <span className="tabular font-mono text-xs text-accent-ink">{clock(pick.start_s)}</span>
+            <span className="min-w-0 truncate">Same video, study</span>
+            <span className="tabular font-mono text-xs text-accent-ink">{studyRange(pick.start_s, pick.end_s)}</span>
           </button>
         ) : (
           <div className="flex min-w-0 gap-3">
@@ -134,9 +134,12 @@ export function PathRow({
               <p className="line-clamp-2 text-sm font-medium leading-snug text-ink">
                 {pick.video.title}
               </p>
-              <VideoMeta video={pick.video} startS={pick.start_s} />
+              <VideoMeta video={pick.video} startS={pick.start_s} endS={pick.end_s} />
+              {pick.snippet ? (
+                <p className="line-clamp-2 text-[13px] leading-relaxed text-soft">“{pick.snippet}”</p>
+              ) : null}
               {pick.reasons[0] ? (
-                <p className="line-clamp-1 text-[13px] text-soft">{pick.reasons[0]}</p>
+                <p className="line-clamp-1 text-[13px] text-faint">{pick.reasons[0]}</p>
               ) : null}
             </div>
           </div>
@@ -187,7 +190,7 @@ export function KnownRow({
       <div className="col-start-2 mt-3 flex min-w-0 flex-wrap items-center gap-3 md:col-start-3 md:mt-0">
         <span className="flex items-center gap-2 text-sm text-soft">
           <Check size={16} weight="bold" className="text-accent-ink" aria-hidden />
-          You marked this as known
+          You have this covered already
         </span>
         {children}
       </div>
@@ -225,10 +228,10 @@ export function QuestionCard({
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <p className="flex items-center gap-1.5 text-[13px] text-soft">
-              {answer.start_s >= 1 ? "Explained at" : "Explained in this video"}
-              {answer.start_s >= 1 ? (
-                <span className="tabular font-mono text-xs text-accent-ink">{clock(answer.start_s)}</span>
-              ) : null}
+              Study
+              <span className="tabular font-mono text-xs text-accent-ink">
+                {studyRange(answer.start_s, answer.end_s)}
+              </span>
             </p>
             <p className="line-clamp-2 text-sm font-medium leading-snug text-ink">
               {answer.video.title}

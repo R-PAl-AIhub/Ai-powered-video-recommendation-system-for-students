@@ -229,6 +229,7 @@ class Recommendation(Base):
     quality: Mapped[float] = mapped_column(Float, default=0.0)  # metadata quality, 0..1
     score: Mapped[float] = mapped_column(Float, default=0.0)  # fuzzy-combined, 0..1
     start_s: Mapped[float] = mapped_column(Float, default=0.0)  # where the topic starts
+    end_s: Mapped[float] = mapped_column(Float, default=0.0)  # where it ends; 0 = end of video
     coverage_s: Mapped[float] = mapped_column(Float, default=0.0)  # seconds spent on it
     snippet: Mapped[str] = mapped_column(Text, default="")
     reasons: Mapped[list[Any]] = mapped_column(JSON, default=list)
@@ -260,6 +261,7 @@ class Question(Base):
     )
     relevance: Mapped[float] = mapped_column(Float, default=0.0)
     start_s: Mapped[float] = mapped_column(Float, default=0.0)
+    end_s: Mapped[float] = mapped_column(Float, default=0.0)
     snippet: Mapped[str] = mapped_column(Text, default="")
 
     document: Mapped[Document] = relationship()
