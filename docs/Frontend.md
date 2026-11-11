@@ -53,7 +53,7 @@ is unavailable.
 | `pages/Landing.tsx` | Hero, inputs bento, live path preview, feedback demo, questions, closing |
 | `pages/Auth.tsx`, `Projects.tsx` | Sign in and up; course list |
 | `pages/Workspace.tsx` | Course shell, tabs, job progress, Sources tab, player |
-| `pages/PathTab.tsx` | The learning path, feedback, alternates, gap filling from YouTube |
+| `pages/PathTab.tsx` | The learning path, feedback with an undo bar, alternates, gap filling from YouTube |
 | `pages/MoreTabs.tsx` | Focus (most important topics), Questions, Search, Topics |
 
 ## Routes

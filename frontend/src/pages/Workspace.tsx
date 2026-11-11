@@ -96,7 +96,6 @@ function Player({
               src={embedUrl(item.video.youtube_id, item.startS)}
               title={item.video.title}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
               className="size-full"
             />
           </div>

@@ -10,7 +10,7 @@ import {
   ThumbsUp,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   api,
@@ -62,6 +62,58 @@ const FEEDBACK: { kind: FeedbackKind; label: string; done: string; icon: typeof 
   { kind: "irrelevant", label: "Irrelevant", done: "", icon: Prohibit },
 ];
 
+/** The last feedback the student gave, kept so it can be undone. Feedback can
+ *  change a row completely (a new video, a gap, a known topic), so the undo
+ *  control cannot live inside the row. */
+interface SentFeedback {
+  topicId: number;
+  videoId: number;
+  kind: FeedbackKind;
+  topicName: string;
+}
+
+const SENT_TEXT: Record<FeedbackKind, string> = {
+  correct: "Video confirmed for",
+  wrong_topic: "Video removed from",
+  irrelevant: "Video removed from the course, including",
+  already_covered: "Marked as known:",
+};
+
+function UndoBar({
+  sent,
+  busy,
+  onUndo,
+  onDismiss,
+}: {
+  sent: SentFeedback;
+  busy: boolean;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl items-center gap-3 rounded-full border border-line-strong bg-raised py-2 pr-2 pl-5 shadow-card"
+    >
+      <p className="min-w-0 flex-1 truncate text-sm">
+        {SENT_TEXT[sent.kind]} “{sent.topicName}”
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        busy={busy}
+        icon={<ArrowCounterClockwise size={14} />}
+        onClick={onUndo}
+      >
+        Undo
+      </Button>
+      <Button variant="quiet" size="sm" onClick={onDismiss}>
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
 function Alternate({
   pick,
   disabled,
@@ -95,18 +147,22 @@ function MatchedControls({
   locked,
   change,
   play,
+  onSent,
 }: {
   projectId: number;
   topic: Topic;
   locked: boolean;
   change: ReturnType<typeof usePathChange>;
   play: TabProps["play"];
+  onSent: (sent: SentFeedback) => void;
 }) {
   const [open, setOpen] = useState(false);
   const pick = topic.primary!;
   const disabled = locked || change.isPending;
   const send = (kind: FeedbackKind, videoId = pick.video.id) =>
-    change.mutate(() => api.feedback(projectId, topic.id, videoId, kind));
+    change.mutate(() => api.feedback(projectId, topic.id, videoId, kind), {
+      onSuccess: () => onSent({ topicId: topic.id, videoId, kind, topicName: topic.name }),
+    });
 
   return (
     <div className="flex flex-col gap-2">
@@ -287,6 +343,13 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "wa
 export function PathTab({ project, busy, play }: TabProps) {
   const path = usePath(project.id);
   const change = usePathChange(project.id);
+  const [sent, setSent] = useState<SentFeedback | null>(null);
+
+  useEffect(() => {
+    if (!sent) return;
+    const timer = window.setTimeout(() => setSent(null), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [sent]);
 
   if (path.isLoading) {
     return (
@@ -384,6 +447,7 @@ export function PathTab({ project, busy, play }: TabProps) {
                     locked={busy}
                     change={change}
                     play={play}
+                    onSent={setSent}
                   />
                 </PathRow>
               );
@@ -391,6 +455,19 @@ export function PathTab({ project, busy, play }: TabProps) {
           </ol>
         </section>
       ))}
+
+      {sent ? (
+        <UndoBar
+          sent={sent}
+          busy={change.isPending}
+          onDismiss={() => setSent(null)}
+          onUndo={() =>
+            change.mutate(() => api.undoFeedback(project.id, sent.topicId, sent.videoId), {
+              onSuccess: () => setSent(null),
+            })
+          }
+        />
+      ) : null}
     </div>
   );
 }

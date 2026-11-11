@@ -20,6 +20,7 @@ re-argued. Change one only with new evidence.
 | One caption request per video; details only when there are no captions | YouTube blocked this machine after a burst of about 300 requests. |
 | Uploaded files are deleted once their text is extracted | Privacy, and it works on hosts with temporary disks. |
 | English models by default, multilingual by configuration | Small and accurate for the common case; YouTube's own translation covers many other-language videos. To be revisited once tested on real non-English playlists. |
+| Feedback is undone from a bar at the bottom of the screen, not from the row | Feedback can turn a row into a different video, a gap or a known topic, so a control inside the row would disappear with the change. |
 | Landing page shows real components with real data | Fake screenshots are the most recognisable sign of generic AI design. |
 | `idea.docx` and the link-list documents are not in git | The repository is public. |
 
