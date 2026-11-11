@@ -34,7 +34,12 @@ change it only with the tools in [[Evaluation and Testing]].
    off-topic chunk; an end within 60 s of the video's end means "to the end".
    **Key terms:** a topic's distinctive words that never appear in a video lower its
    relevance (up to 30%), so "disk scheduling" does not match a CPU-scheduling
-   lecture. **Chaining:** sequencing adds a small bonus when the next pick's
+   lecture. **Transcript evidence** (`apply_transcript_evidence`, spoken words only,
+   never the title): a video that names a topic only inside a course-contents
+   read-out (three or more "chapter N" references in one passage) keeps half its
+   relevance, so the topic stays a gap; a video that names a topic of two or more
+   words in two passages in a row is discussing it and gets at least 0.6, whatever
+   its title says. Scattered passing mentions do not count. **Chaining:** sequencing adds a small bonus when the next pick's
    stretch is close in meaning to the previous one's. **Transitions:** topic order
    can be mined from the playlists' own video order (`playlist_topic_order`).
    **Extra topics:** headings found only in notes, and phrases asked in two or more
@@ -71,8 +76,22 @@ change it only with the tools in [[Evaluation and Testing]].
 - Synthetic labelled course: 25/25 topics, 3/3 gaps (real models).
 - Real 77-video playlist: all 38 coverable topics matched, 20 uncovered topics
   reported as gaps, 6 of 8 past questions answered and the other 2 correctly not.
+- Real 15-video database-systems playlist (Neso Academy, "Introduction to DBMS |
+  Chapter 1"), 15 syllabus topics, checked against the transcripts by hand
+  (2026-11-11): 9 matched, 6 gaps. Two errors found and fixed by the transcript
+  evidence rules: "Functional dependencies" had matched the intro video where the
+  teacher reads out the course contents (now a gap); "Data independence" was a gap
+  although "View of Data" teaches it from 5:17 (now matched there). The real
+  operating-systems course is unchanged by the rules (58 of 58 topics identical).
+  Still wrong: "Three-schema architecture" picks "Three Tier Architecture" from
+  0:00; the three levels are really taught in "View of Data" from 2:41 (the words
+  "three schema" are never spoken, so only meaning can find it, and the reranker
+  prefers the look-alike title).
 
 ## Known limits
+
+- Topics taught under different words than the syllabus uses can still be
+  matched to a look-alike title (see the three-schema case above).
 
 - An English-only embedding model by default. Captions in other languages are
   translated to English by YouTube when possible; otherwise the video is matched on

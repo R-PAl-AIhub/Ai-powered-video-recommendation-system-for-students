@@ -7,6 +7,7 @@ import re
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 import numpy as np
 from sqlalchemy import delete, select
@@ -45,6 +46,9 @@ RERANK_PASSAGES = 3  # transcript chunks per video read by the cross-encoder
 FIRST_STAGE_WEIGHT = 0.15  # how much a weak embedding score trims the final relevance
 TITLE_BONUS = 0.08  # tie-breaker for a video whose title names the topic
 KEY_TERM_WEIGHT = 0.3  # most a topic's missing words can lower a video's relevance
+OUTLINE_REFERENCES = 3  # "chapter 7 ... chapter 8 ... chapter 9" in one passage = a contents list
+OUTLINE_PENALTY = 0.5  # relevance kept when a topic is only named in a contents list
+NAMED_FLOOR = 0.6  # relevance of a video that discusses a topic by name
 PRACTICE_PENALTY = 0.05  # worked-problem videos rank just below the concept lecture
 CONTEXT_WEIGHT = 0.15  # share of the unit-qualified wording in a topic vector
 NOTES_WEIGHT = 0.15  # share of the teacher's notes passage, when one matches
@@ -426,6 +430,82 @@ def apply_key_terms(index: ProjectIndex, queries: list[str], relevance: np.ndarr
     return adjusted
 
 
+_NUMBER_WORDS = "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+_OUTLINE_REFERENCE = re.compile(
+    rf"\b(?:chapter|unit|module|lecture|section)\s+(?:number\s+)?(?:\d+|{_NUMBER_WORDS})\b"
+    r"|\b(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d+(?:st|nd|rd|th))"
+    r"\s+(?:chapter|unit|module)\b",
+    re.IGNORECASE,
+)
+
+
+def is_outline(text: str) -> bool:
+    """A passage that walks through the course contents ("in chapter 7 we will
+    see normalization, in chapter 8 storage ..."). It names many topics and
+    teaches none of them."""
+    return len(_OUTLINE_REFERENCE.findall(text)) >= OUTLINE_REFERENCES
+
+
+def _phrase_pattern(text: str) -> re.Pattern | None:
+    """Matches the topic's words in order, whatever their endings: "functional
+    dependencies" also finds "functional dependency"."""
+    words = _key_words(text)
+    if not words:
+        return None
+    return re.compile(r"\W+".join(rf"\b{re.escape(_stem(w))}\w*" for w in words))
+
+
+def apply_transcript_evidence(
+    index: ProjectIndex, queries: list[str], relevance: np.ndarray
+) -> np.ndarray:
+    """Correct the relevance with what the transcript literally says.
+
+    * A video that names the topic only while listing the course contents does
+      not teach it: its relevance is cut, so the topic stays a gap instead of
+      pointing at a syllabus read-out.
+    * A video that names a topic of two or more words in two passages in a row
+      (over a minute of the lecture) is discussing it, whatever the video is
+      called. The reranker
+      scores one long passage at a time and can underrate a topic taught as part
+      of a broader lecture ("data independence" inside "View of Data"), so such
+      a video gets at least ``NAMED_FLOOR``.
+
+    Only the spoken words are used here, never the title.
+    """
+    adjusted = relevance.copy()
+    lowered: dict[int, str] = {}
+    outline: dict[int, bool] = {}
+    for row, query in enumerate(queries):
+        pattern = _phrase_pattern(query)
+        if pattern is None:
+            continue
+        several_words = len(_key_words(query)) >= 2
+        # Every video is looked at, including those the reranker scored 0: it is
+        # exactly the underrated ones that the second rule is for.
+        for column, (start, end) in enumerate(index.spans):
+            listing = 0
+            teaching: list[int] = []
+            for chunk in range(start + 1, end):  # transcript passages; start is the title
+                if chunk not in lowered:
+                    lowered[chunk] = index.texts[chunk].lower()
+                if not pattern.search(lowered[chunk]):
+                    continue
+                if chunk not in outline:
+                    outline[chunk] = is_outline(lowered[chunk])
+                if outline[chunk]:
+                    listing += 1
+                else:
+                    teaching.append(chunk)
+            if listing and not teaching:
+                adjusted[row, column] *= OUTLINE_PENALTY
+            elif several_words and any(b - a == 1 for a, b in pairwise(teaching)):
+                # Named in two passages in a row: the lecture stays on the topic.
+                # (Scattered mentions are not enough: an overview of operating
+                # system structures says "virtual memory" three times in passing.)
+                adjusted[row, column] = max(adjusted[row, column], NAMED_FLOOR)
+    return adjusted
+
+
 def _rank_score(
     text: str,
     index: ProjectIndex,
@@ -778,6 +858,8 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         pinned_columns,
     )
     relevance = apply_key_terms(index, [texts[t.id] for t in topics], relevance)
+    relevance = apply_transcript_evidence(index, [texts[t.id] for t in topics], relevance)
+
     def naming_tokens(text: str) -> list[set[str]]:
         """Ways a title can name a topic: its full wording, or for "Head: item" just
         the item. Bracketed abbreviations such as "(PCB)" are optional."""

@@ -37,29 +37,42 @@ has to double-click and sign up. Reflect every change in these notes, and keep
 
 Do in order. Mark each item done here, with what was verified, before moving on.
 
-1. [~] CI. Checked 2026-11-11: frontend build and evaluation gate pass; on SQLite
-   and on PostgreSQL every test passed except one,
-   `test_blocked_youtube_degrades_gracefully_and_schedules_a_retry`. Cause: a real
-   race. The "stop asking YouTube after 3 refusals in a row" decision was taken by
-   the thread that collects results, so fast worker threads could request every
-   video first. Fixed: the worker threads now count refusals themselves
-   (`_BlockWatch` in `services/pipeline.py`). **Still to confirm: the CI run of the
-   commit with this fix is green, and the Docker image job (it only runs when the
-   tests pass) builds and publishes.** Read results without a login:
-   `curl -s .../actions/runs?per_page=3`, `.../actions/runs/<id>/jobs`, and
-   `.../check-runs/<job id>/annotations` (failing tests appear there as
-   annotations, thanks to `pytest-github-actions-annotate-failures`; raw logs need
-   a login).
+1. [x] CI (2026-11-11). The run of `ed24d3c` is green in every job: lint and tests
+   on SQLite, tests on PostgreSQL (first time ever), evaluation gate, frontend
+   build, and the Docker image built and published to
+   `ghcr.io/r-pal-aihub/waypoint`. The only failure before was a real race: the
+   "stop asking YouTube after 3 refusals in a row" decision was taken by the thread
+   that collects results, so fast worker threads could request every video first.
+   Fixed with `_BlockWatch` in `services/pipeline.py`. Read CI without a login:
+   `curl -s .../actions/runs?per_page=3`, `.../actions/runs/<id>/jobs`,
+   `.../check-runs/<job id>/annotations` (failing tests show as annotations).
+   Not done: nobody has *run* the published image (no Docker on this PC).
 2. [x] Unit tests (2026-11-11): `tests/test_jobs.py`, `test_youtube.py`,
    `test_ocr.py`, `test_document_formats.py`. 181 tests pass, lint clean, gate
    25/25, coverage 82% -> 90%. They found one bug, now fixed: a text file saved by
    Windows Notepad as "Unicode" (UTF-16) was refused as unsupported
    (`sniff_kind` in `services/documents.py`). `backend/.coverage` is no longer
    tracked in git.
-3. [ ] Run the full app as `start-waypoint.bat` does (fresh `app.db`): sign up,
-   make a course, add a playlist and a syllabus, analyse, open the path. Include
-   file upload through the screen and topic reorder by drag. Stop the server after.
-4. [ ] More real playlists in other subjects, and one non-English playlist.
+3. [~] Full app in the browser, as `start-waypoint.bat` runs it, on a throwaway
+   database (`backend/data/trial.db`, account `trial@example.com`, delete when
+   done). Done and working 2026-11-11: landing page, sign-up, new course, add a
+   real playlist, upload a syllabus file through the screen (a Notepad "Unicode"
+   file), build the path (job ran to "done" in about 40 s for 15 videos).
+   **Still to do: restart the server (it must load the new matching code), build
+   again, then check the Path tab, the player, feedback, Focus, Questions, Search,
+   and topic reorder by drag in the Topics tab. Then stop the server and delete
+   `trial.db*`.** Screenshots time out in this browser; drive the page with
+   `find` / `read_page` / `javascript_tool` instead. `start-waypoint.bat` itself
+   (the double-click) has still not been run.
+4. [~] More real playlists. Done 2026-11-11: a database-systems playlist (see
+   [[Matching Pipeline]], "Results"), judged against the transcripts, not the
+   titles (owner: a title can mean something else than what the video covers; the
+   same holds for books and articles). It exposed two matching errors, both fixed
+   (`apply_transcript_evidence` in `services/recommend.py`, 7 tests). **Still to
+   do: one non-English playlist** (candidates found by search: Gate Smashers,
+   Hindi: `PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW` "Normalization | DBMS",
+   `PLg1Ai66MkMKAHihK8UANWiUZKTHkkgV6R` "Linked List"). YouTube is not blocking
+   this PC at the moment.
 5. [ ] Click through the live demo in a browser.
 6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
    `nextAi.txt` final, everything pushed.
@@ -277,6 +290,7 @@ needed, because startup now upgrades old databases automatically.
 - The YouTube Data API backend is written but has never run against the real API
   (no key was available).
 - PostgreSQL has run only in CI (all tests pass there); never on this PC.
+- "Three-schema architecture" on the database playlist picks a look-alike title (see [[Matching Pipeline]]).
 - On the real playlist, "Concept of Operating Systems" picks video 2 rather than
   video 1. Left as is.
 
@@ -286,6 +300,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Transcript evidence rules in matching (contents read-outs are not teaching; a topic discussed by name counts under any title), found on a real database-systems playlist checked against its transcripts; 188 tests, gate 25/25, real OS course unchanged. CI of `ed24d3c` fully green, including PostgreSQL and the Docker image. Full app verified in the browser up to a finished analysis. |
+| 2026-11-11 | `ed24d3c` | Race in stopping after a YouTube block fixed (the one CI failure); unit tests for jobs, youtube, ocr, documents; UTF-16 text files accepted. |
 | 2026-11-11 | (this commit) | Finishing pass 1 and 2: fixed the race in stopping after a YouTube block (the one CI failure, same on SQLite and PostgreSQL); unit tests for jobs, youtube, ocr, documents (181 tests, 90% coverage); UTF-16 text files now accepted. |
 | 2026-11-11 | `6c692ff` | CI reports failing tests as annotations (readable without a login). |
 | 2026-11-11 | `a1cf310` | `nextAi.txt` handoff prompt; finishing-pass plan in this note. |

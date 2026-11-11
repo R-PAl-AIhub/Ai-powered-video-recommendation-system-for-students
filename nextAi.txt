@@ -60,10 +60,18 @@ USEFUL FACTS
 CURRENT STATE (updated at every checkpoint)
 - Date: 2026-11-11
 - Done: app built; demo online; start-waypoint.bat and README.md written.
-  Finishing pass item 2 (unit tests: 181 tests pass, 90% coverage) is done.
-  Finishing pass item 1 (CI): the one failing test was a real race, now fixed.
-- In progress: confirm that the CI run of the latest commit is green and that the
-  Docker image job ran (item 1). Then item 3: run the full app like
-  start-waypoint.bat does, on a fresh database, and test it in the browser.
-- Next step: see the first item not marked [x] in "Finishing pass" in
-  docs/Progress.md.
+  Finishing pass 1 (CI fully green, PostgreSQL and Docker image included) and
+  2 (unit tests; 188 tests pass, 90% coverage) are done.
+  Matching improved from a real database-systems playlist checked against its
+  transcripts (my rule: judge by the transcript and the page text, never by the
+  title alone; the same for books and articles).
+- In progress: Finishing pass 3 (browser test of the full app; done up to a
+  finished analysis, the tabs after that are still to check) and 4 (one
+  non-English playlist still to run).
+- Careful: a test server may still be running on port 8000 with the throwaway
+  database backend/data/trial.db. Stop it (find the python process on port 8000)
+  and delete backend/data/trial.db* when the browser test is finished.
+- After that: 5 (click through the live demo; republish it first with
+  bash frontend/deploy-pages.sh only if frontend code changed) and 6 (final
+  state: no test data left, docs and this file final, everything pushed).
+- Next step: the first item not marked [x] in "Finishing pass" in docs/Progress.md.

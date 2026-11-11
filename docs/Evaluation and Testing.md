@@ -5,7 +5,7 @@ Back to [[Project Map]].
 ## Commands (run in `backend/`)
 
 ```bash
-.venv/Scripts/python -m pytest                              # 181 tests, no network, about a minute
+.venv/Scripts/python -m pytest                              # 188 tests, no network, about a minute
 .venv/Scripts/python -m ruff check app evaluation tests     # lint
 .venv/Scripts/python -m evaluation.run --backend fastembed  # quality gate with the real models
 .venv/Scripts/python -m evaluation.run --backend hash       # quality gate with the lexical fallback
@@ -32,6 +32,8 @@ In `frontend/`: `npm run build` (type-check and build).
 - **`tests/test_document_formats.py`**: file-type detection from content, text
   cleanup, PDFs with a text layer and bookmarks, Word headings and tables, text
   encodings, web pages.
+- **`tests/test_transcript_evidence.py`**: the two transcript rules of
+  [[Matching Pipeline]] (contents read-outs, topics discussed under another title).
 - Together: 90% line coverage of `app/` (`documents.py` 97%, `ocr.py` 100%,
   `jobs.py` 95%, `youtube.py` 99%).
 - **`evaluation/os_course.py`**: a small labelled course (original transcripts, a
