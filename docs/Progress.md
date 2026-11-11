@@ -24,7 +24,12 @@ demo on GitHub Pages, a Docker image on GHCR and a `render.yaml` for the full st
 2. ~~Study material UI~~ (done 2026-11-11; builds. Visual check happens on the
    static demo in step 5, which carries sample readings; the machine was too short
    of memory to run the model server for a browser check).
-3. Deployment files: `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.env.example`.
+3. ~~Deployment files~~ (done 2026-11-11): `Dockerfile` (Node build stage, Python
+   3.13 runtime, models baked into `/opt/models`, non-root, health check),
+   `.dockerignore`, `docker-compose.yml` (PostgreSQL, API with `RUN_WORKER=false`,
+   separate worker sharing the `/data` volume), `render.yaml` (standard plan for the
+   models' memory), `.env.example`. No Docker on this machine: the image is first
+   built by CI (step 4).
 4. CI in `.github/workflows/` (push it in its own commit; a credential without the
    `workflow` scope rejects it).
 5. GitHub Pages demo: `VITE_DEMO` build of the frontend with the real sample data,
@@ -162,7 +167,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Study material UI: Sources tab section (web page or online PDF, upload, paste); "Also read" on path rows; readings as the main suggestion on gap rows; gap stat counts gaps the reading explains. Frontend builds. |
+| 2026-11-11 | (this commit) | Deployment files: Dockerfile, docker-compose (PostgreSQL + API + worker), render.yaml, .env.example; Vercel ruled out (recorded in [[Decisions]]). Not yet built: no Docker here; CI builds it next. |
+| 2026-11-11 | `2a2eb3c` | Study material UI: Sources tab section (web page or online PDF, upload, paste); "Also read" on path rows; readings as the main suggestion on gap rows; gap stat counts gaps the reading explains. Frontend builds. |
 | 2026-11-11 | `3b88844` | Study material beyond videos (backend): `reading` documents (files, pasted text, web pages via `POST /documents/url` with SSRF protection), passages with PDF pages and section headings, readings per topic matched like videos (migration 0005). Real check with OSTEP chapters and Wikipedia: 11 of 12 readings on the right section, 8 fill video gaps. 74 tests pass; gate passes. |
 | 2026-11-11 | (this commit) | Topics taught across several stretches: part series, repeated teaching, and set cover of a topic's parts across playlists, with uncovered parts listed (migration 0004). Six worst-case tests; gate checks zero unneeded splits. 55 tests pass. |
 | 2026-11-11 | (this commit) | Whole-video picks say "study the whole video". Browser-checked on the restarted server: ranges in Path, Questions and Search; player opens at the start second; topic map, new label and order button present. |

@@ -1,0 +1,61 @@
+# The full stack on one machine: PostgreSQL, the API (serving the web app) and a
+# separate job worker.
+#
+#   cp .env.example .env      # then set SECRET_KEY (and optionally API keys)
+#   docker compose up -d --build
+#   open http://localhost:8000
+#
+# The API and the worker share the /data volume: uploads are written by the API
+# and read by the worker.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: waypoint
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-waypoint}
+      POSTGRES_DB: waypoint
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waypoint -d waypoint"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: .
+    image: waypoint:local
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://waypoint:${POSTGRES_PASSWORD:-waypoint}@db:5432/waypoint
+      RUN_WORKER: "false" # the worker service below runs the jobs
+      MIGRATE_ON_START: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: waypoint:local # built by the api service
+    pull_policy: never
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://waypoint:${POSTGRES_PASSWORD:-waypoint}@db:5432/waypoint
+      MIGRATE_ON_START: "false" # the API migrates; two migrators would race
+    volumes:
+      - app-data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  app-data:
