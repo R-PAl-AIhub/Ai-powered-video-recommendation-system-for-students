@@ -44,6 +44,10 @@ These carry the same weight as the idea document.
    past papers.
 8. Keep checkpoints and a progress file so the work can be resumed by anyone.
    See [[Progress]].
+9. **The idea document is the sole source of truth; every point in it must be
+   implemented** (2026-11-11). Tracked line by line in [[Requirements Checklist]].
+10. Each recommendation must tell the student exactly what to study: from this
+    timestamp to that timestamp of the video (2026-11-11).
 
 ## What "done" means
 
