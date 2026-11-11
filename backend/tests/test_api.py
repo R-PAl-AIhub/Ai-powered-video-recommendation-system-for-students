@@ -616,3 +616,10 @@ def test_videos_without_captions_are_transcribed_when_asr_is_on(client):
     pick = topic_by_name(path_of(client, project_id), "File allocation methods")["primary"]
     assert pick["video"]["youtube_id"] == "rvFiles0005"
     assert pick["video"]["transcript_status"] == "ok"
+
+
+def test_topic_map_finds_the_themes_of_the_playlists(client, course):
+    themes = client.get(f"/api/projects/{course}/topic-map").json()
+    assert 3 <= len(themes) <= 12
+    assert all(theme["words"] and theme["videos"] for theme in themes)
+    assert any(theme["topics"] for theme in themes)  # some themes match the syllabus

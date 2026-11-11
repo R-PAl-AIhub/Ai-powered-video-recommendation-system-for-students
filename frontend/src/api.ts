@@ -162,6 +162,13 @@ export interface Questions {
   questions: Question[];
 }
 
+/** A theme the playlists cover, found by LDA topic modelling. */
+export interface Theme {
+  words: string[];
+  videos: Video[];
+  topics: string[]; // matching syllabus topics; empty = beyond the syllabus
+}
+
 export interface SearchResult {
   video: Video;
   relevance: number;
@@ -277,6 +284,7 @@ export const api = {
   // learning
   path: (id: number) => request<Path>("GET", `${project(id)}/path`),
   questions: (id: number) => request<Questions>("GET", `${project(id)}/questions`),
+  topicMap: (id: number) => request<Theme[]>("GET", `${project(id)}/topic-map`),
   search: (id: number, query: string) =>
     request<SearchOutcome>("GET", `${project(id)}/search?q=${encodeURIComponent(query)}`),
   feedback: (id: number, topicId: number, videoId: number, kind: FeedbackKind) =>

@@ -14,7 +14,7 @@ and the README are not started.
 
 ## Resume here
 
-**Next action: close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
+**Next action: Deployment** (to-do item 3), then CI/CD. Every buildable gap in [[Requirements Checklist]] is closed (2026-11-11). Previously: **close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
 the idea document is the sole source of truth; every point must be built). Then
 Deployment (to-do item 3). Work in this order, updating the checklist row, this
 note and committing after each:
@@ -42,7 +42,7 @@ note and committing after each:
    pick's end leads into the next pick's start.
 8. ~~**Optional ASR**~~ (done 2026-11-11). Was: (faster-whisper) for videos without captions, paced, off by
    default.
-9. **LDA topic map** of the playlists (sklearn), shown as a coverage view.
+9. ~~**LDA topic map**~~ (done 2026-11-11). Was: of the playlists (sklearn), shown as a coverage view.
 
 The demo server: see the steps below; `data/demo.db` has the real playlist. Migrations are done. The steps below are
 kept as the recipe for running the demo; step 1's manual `ALTER TABLE` is no longer
@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | LDA topic map of the playlists (Focus tab), with matching syllabus topics and themes beyond the syllabus. Every buildable checklist item is done. 49 tests pass. |
 | 2026-11-11 | (this commit) | Optional speech recognition (faster-whisper, ffmpeg decode) for caption-less videos; verified on a real lecture. YouTube no longer blocks this machine. 48 tests pass. |
 | 2026-11-11 | (this commit) | Topic order mined from the playlists (auto when no syllabus; button in Topics); content-chaining bonus in sequencing. 47 tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | OCR verified on real files (scanned PDF, handwriting-style photo, Word); spell-check of OCR text against course vocabulary; Google Vision backend for handwriting. 45 tests pass. |

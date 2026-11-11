@@ -9,7 +9,7 @@ Status: **Done** (built and verified), **Partial** (built, with a stated limit),
 **Not built** (to do), **Untested** (built, never run on real input),
 **Not possible** (with the reason).
 
-Last checked: 2026-11-11.
+Last checked: 2026-11-11. **Every buildable point is now Done.** What remains is Partial or Not possible only where an outside dependency decides it (API keys, YouTube not publishing watch time, more real courses).
 
 ## Added by the owner on top of the document
 
@@ -41,7 +41,7 @@ Last checked: 2026-11-11.
 |---|---|---|
 | Match video content to topics beyond keyword search | Done | Embeddings (`BAAI/bge-small-en-v1.5`) plus TF-IDF, then a cross-encoder; see [[Matching Pipeline]] |
 | Vector embeddings (BERT / sentence-transformers) for topic-to-transcript similarity | Done | Same as above |
-| Topic modelling (LDA) on transcripts and documents | Not built | Embeddings are used for matching. LDA could map the playlist's latent topics (for example, a "topics in your playlists" view and coverage check). |
+| Topic modelling (LDA) on transcripts and documents | Done | `services/topic_map.py`: LDA over every video (title, description, transcript) finds the playlists' themes, each with top words, its videos and the syllabus topics it matches; themes with no match are flagged "Beyond your syllabus". Shown in the Focus tab ("What your playlists cover"); `GET /api/projects/{id}/topic-map`. On the real 77-video playlist it found 9 coherent themes (CPU scheduling, critical section, threads, ...). Test: `test_topic_map_finds_the_themes_of_the_playlists`. Matching itself uses embeddings, which the document allows. |
 | TF-IDF cosine similarity between topic queries and transcripts | Done | Part of stage 1 |
 | Find which time segments of a video cover a topic | Done | Start and end second per recommendation; see the owner's addition above. |
 | A threshold for "relevant" | Done | Default 0.5, learned from feedback (`learn_threshold`) |

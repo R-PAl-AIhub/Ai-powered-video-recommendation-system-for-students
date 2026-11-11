@@ -17,6 +17,7 @@ from ..schemas import (
     QuestionsOut,
     SearchOut,
     SearchResult,
+    ThemeOut,
     TopicIn,
     TopicOrderIn,
     TopicPatch,
@@ -34,6 +35,7 @@ from ..services.recommend import (
     search_project,
     unit_title,
 )
+from ..services.topic_map import build_topic_map
 from ..services.youtube import YouTubeError, get_youtube_client, parse_video_id, watch_url
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["learning"])
@@ -65,6 +67,26 @@ def _refresh(db: Session, project: Project) -> PathOut:
 @router.get("/path", response_model=PathOut)
 def get_path(project: Project = Depends(owned_project), db: Session = Depends(get_db)):
     return build_path(db, project)
+
+
+@router.get("/topic-map", response_model=list[ThemeOut])
+def get_topic_map(project: Project = Depends(owned_project), db: Session = Depends(get_db)):
+    """The themes the playlists cover (LDA), with their videos and syllabus topics."""
+    playlists = {p.id: p for p in project.playlists}
+    names = {t.id: t.name for t in project.topics}
+    themes = build_topic_map(db, project)
+    videos = {v.id: v for v in db.scalars(select(Video).where(Video.project_id == project.id))}
+    return [
+        ThemeOut(
+            words=theme.words,
+            videos=[
+                video_out(videos[vid], playlists)
+                for vid in sorted(theme.video_ids, key=lambda i: videos[i].playlist_position)
+            ][:12],
+            topics=[names[tid] for tid in theme.topic_ids],
+        )
+        for theme in themes
+    ]
 
 
 @router.get("/questions", response_model=QuestionsOut)

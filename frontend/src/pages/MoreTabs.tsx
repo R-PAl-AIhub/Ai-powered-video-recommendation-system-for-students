@@ -18,7 +18,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { api, type SearchResult, type Topic } from "../api";
 import { clock, cx, plural } from "../format";
-import { Button, EmptyState, Field, IconButton, Notice, Skeleton } from "../ui";
+import { Button, Chip, EmptyState, Field, IconButton, Notice, Skeleton } from "../ui";
 import { FocusRow, QuestionCard, Thumb, VideoMeta } from "./parts";
 import { playQueue, usePath, usePathChange, YouTubeFinder } from "./PathTab";
 import { errorText, type TabProps } from "./Workspace";
@@ -36,10 +36,13 @@ export function FocusTab({ project, play }: TabProps) {
     .sort((a, b) => b.importance - a.importance || a.position - b.position);
   if (ranked.length === 0) {
     return (
+      <div className="flex flex-col gap-10">
       <EmptyState icon={<Target size={22} />} title="Nothing to rank yet">
         Upload past exam papers or class notes on the Sources tab and build the path again. Topics
         are then ranked by how often they are asked and whether your teacher covered them.
       </EmptyState>
+      <PlaylistMap projectId={project.id} />
+      </div>
     );
   }
   const queue = playQueue(ranked);
@@ -70,7 +73,46 @@ export function FocusTab({ project, play }: TabProps) {
           />
         ))}
       </ol>
+      <PlaylistMap projectId={project.id} />
     </div>
+  );
+}
+
+/** The playlists' themes (LDA): what the videos cover, matched to the syllabus. */
+function PlaylistMap({ projectId }: { projectId: number }) {
+  const map = useQuery({ queryKey: ["topic-map", projectId], queryFn: () => api.topicMap(projectId) });
+  if (map.isLoading) return <Skeleton className="h-40 w-full" />;
+  if (!map.data?.length) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex max-w-[62ch] flex-col gap-1">
+        <h2 className="text-2xl font-semibold">What your playlists cover</h2>
+        <p className="text-soft">
+          Themes found across all the videos by topic modelling, with the syllabus topics each
+          one matches. A theme with no match is taught in your playlists but not on your syllabus.
+        </p>
+      </div>
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {map.data.map((theme) => (
+          <li key={theme.words.join()} className="flex flex-col gap-3 rounded-card border border-line bg-raised p-5">
+            <p className="font-mono text-sm text-accent-ink">{theme.words.join(", ")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {theme.topics.length ? (
+                theme.topics.map((name) => <Chip key={name}>{name}</Chip>)
+              ) : (
+                <Chip tone="warn">Beyond your syllabus</Chip>
+              )}
+            </div>
+            <div className="flex -space-x-3">
+              {theme.videos.slice(0, 6).map((video) => (
+                <Thumb key={video.id} video={video} className="w-20 ring-2 ring-raised" />
+              ))}
+            </div>
+            <p className="text-[13px] text-faint">{plural(theme.videos.length, "video")}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

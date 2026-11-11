@@ -229,6 +229,14 @@ class QuestionsOut(BaseModel):
     questions: list[QuestionOut]
 
 
+class ThemeOut(BaseModel):
+    """A theme the playlists cover, found by LDA topic modelling."""
+
+    words: list[str]
+    videos: list[VideoOut]
+    topics: list[str]  # matching syllabus topics; empty = beyond the syllabus
+
+
 class TopicIn(BaseModel):
     name: str = Field(min_length=2, max_length=300)
     unit: str = Field(default="", max_length=300)
