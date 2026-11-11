@@ -1,7 +1,8 @@
 /** Typed client for the backend API. The session is an httpOnly cookie, so
  *  requests only need `credentials: "same-origin"`. */
 
-export type DocumentKind = "syllabus" | "exam" | "notes";
+/** "reading" is study material: a book, an article or a web page. */
+export type DocumentKind = "syllabus" | "exam" | "notes" | "reading";
 export type FeedbackKind = "correct" | "wrong_topic" | "irrelevant" | "already_covered";
 
 export interface User {
@@ -61,6 +62,22 @@ export interface DocumentInfo {
   ocr_pages: number;
   characters: number;
   preview: string;
+  source_url: string; // web pages only
+  passages: number; // sections the material was cut into
+}
+
+/** Where in the student's study material a topic is explained. */
+export interface Reading {
+  document_id: number;
+  document: string;
+  kind: string; // reading | notes
+  relevance: number;
+  page_start: number; // 0 when the material has no pages
+  page_end: number;
+  page_label: string; // printed page number, when the PDF defines one
+  heading: string;
+  snippet: string;
+  url: string; // opens the material at this place; "" for uploaded files
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -129,6 +146,7 @@ export interface Topic {
   importance: number;
   primary: Recommendation | null;
   alternates: Recommendation[];
+  readings: Reading[]; // study material for this topic, best first
 }
 
 export interface PathStats {
@@ -136,6 +154,7 @@ export interface PathStats {
   matched: number;
   gaps: number;
   covered: number;
+  gaps_with_reading: number; // gaps the student's material explains
   videos: number;
   watched: number;
   total_seconds: number;
@@ -287,6 +306,8 @@ export const api = {
   },
   addText: (id: number, kind: DocumentKind, text: string, title: string) =>
     request<DocumentInfo>("POST", `${project(id)}/documents/text`, { kind, text, title }),
+  addWebPage: (id: number, url: string) =>
+    request<DocumentInfo>("POST", `${project(id)}/documents/url`, { url }),
   removeDocument: (id: number, documentId: number) =>
     request<void>("DELETE", `${project(id)}/documents/${documentId}`),
   process: (id: number, reextract = false) =>

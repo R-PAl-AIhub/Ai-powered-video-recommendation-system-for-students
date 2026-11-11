@@ -21,10 +21,9 @@ demo on GitHub Pages, a Docker image on GHCR and a `render.yaml` for the full st
 **Next action, in order:**
 
 1. ~~Study material backend~~ (done 2026-11-11, `services/readings.py`, migration 0005).
-2. **Study material UI**: Sources tab gets a "Reading material" upload kind and an
-   "Add a web page" field (`POST /documents/url`); the Path tab shows a "Read:" line
-   per topic (`topic.readings`), and on gap rows the reading becomes the main
-   suggestion ("No video teaches this — read …"). Gap semantics stay: gap = no video.
+2. ~~Study material UI~~ (done 2026-11-11; builds. Visual check happens on the
+   static demo in step 5, which carries sample readings; the machine was too short
+   of memory to run the model server for a browser check).
 3. Deployment files: `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.env.example`.
 4. CI in `.github/workflows/` (push it in its own commit; a credential without the
    `workflow` scope rejects it).
@@ -163,7 +162,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Study material beyond videos (backend): `reading` documents (files, pasted text, web pages via `POST /documents/url` with SSRF protection), passages with PDF pages and section headings, readings per topic matched like videos (migration 0005). Real check with OSTEP chapters and Wikipedia: 11 of 12 readings on the right section, 8 fill video gaps. 74 tests pass; gate passes. |
+| 2026-11-11 | (this commit) | Study material UI: Sources tab section (web page or online PDF, upload, paste); "Also read" on path rows; readings as the main suggestion on gap rows; gap stat counts gaps the reading explains. Frontend builds. |
+| 2026-11-11 | `3b88844` | Study material beyond videos (backend): `reading` documents (files, pasted text, web pages via `POST /documents/url` with SSRF protection), passages with PDF pages and section headings, readings per topic matched like videos (migration 0005). Real check with OSTEP chapters and Wikipedia: 11 of 12 readings on the right section, 8 fill video gaps. 74 tests pass; gate passes. |
 | 2026-11-11 | (this commit) | Topics taught across several stretches: part series, repeated teaching, and set cover of a topic's parts across playlists, with uncovered parts listed (migration 0004). Six worst-case tests; gate checks zero unneeded splits. 55 tests pass. |
 | 2026-11-11 | (this commit) | Whole-video picks say "study the whole video". Browser-checked on the restarted server: ranges in Path, Questions and Search; player opens at the start second; topic map, new label and order button present. |
 | 2026-11-11 | (this commit) | Study ranges tuned on the real playlist (whole video when the title names only this topic; strict start, tolerant end); key-term check fixes "disk scheduling" matching a CPU lecture; ASR also retries caption-less videos; demo data rebuilt; docs brought up to date. 49 tests pass; gate 25/25. |

@@ -91,8 +91,9 @@ function topic(
     importance: 0,
     primary,
     alternates: [],
+    readings: [],
     ...extra,
-  };
+  } as Topic;
 }
 
 const v = sampleVideos;

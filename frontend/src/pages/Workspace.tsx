@@ -5,6 +5,7 @@ import {
   CheckCircle,
   ClipboardText,
   FileText,
+  Globe,
   Trash,
   UploadSimple,
   Warning,
@@ -166,19 +167,24 @@ const KINDS: { kind: DocumentKind; title: string; hint: string }[] = [
 ];
 
 function DocumentRow({ doc, onRemove, locked }: { doc: DocumentInfo; onRemove: () => void; locked: boolean }) {
+  const Icon = doc.source_url ? Globe : FileText;
   return (
     <li className="flex items-center gap-3 py-2.5">
-      <FileText size={18} className="shrink-0 text-faint" aria-hidden />
+      <Icon size={18} className="shrink-0 text-faint" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="truncate text-sm font-medium">{doc.filename}</p>
         <p className={cx("truncate text-[13px]", doc.status === "error" ? "text-danger" : "text-faint")}>
           {doc.status === "error"
             ? doc.error || "Could not be read"
             : doc.status === "pending"
-              ? `${fileSize(doc.size_bytes)}, read when you build the path`
+              ? doc.source_url
+                ? "Web page, read when you build the path"
+                : `${fileSize(doc.size_bytes)}, read when you build the path`
               : [
                   doc.page_count > 1 ? plural(doc.page_count, "page") : "",
-                  `${doc.characters.toLocaleString()} characters`,
+                  doc.kind === "reading" && doc.passages
+                    ? plural(doc.passages, "section")
+                    : `${doc.characters.toLocaleString()} characters`,
                   doc.ocr_pages ? `${plural(doc.ocr_pages, "page")} read with OCR` : "",
                 ]
                   .filter(Boolean)
@@ -234,8 +240,20 @@ function SourcesTab({ project, busy }: TabProps) {
   });
   const removeDocument = useMutation({
     mutationFn: (documentId: number) => api.removeDocument(project.id, documentId),
-    onSuccess: refresh,
+    onSuccess: () => {
+      refresh();
+      client.invalidateQueries({ queryKey: ["path", project.id] });
+    },
   });
+  const [pageUrl, setPageUrl] = useState("");
+  const addWebPage = useMutation({
+    mutationFn: () => api.addWebPage(project.id, pageUrl.trim()),
+    onSuccess: () => {
+      setPageUrl("");
+      refresh();
+    },
+  });
+  const readings = project.documents.filter((d) => d.kind === "reading");
   const run = useMutation({ mutationFn: () => api.process(project.id), onSuccess: refresh });
 
   function onAddPlaylist(event: FormEvent) {
@@ -381,6 +399,78 @@ function SourcesTab({ project, busy }: TabProps) {
         </div>
       </section>
 
+      <section className="flex flex-col gap-5">
+        <div className="flex max-w-[64ch] flex-col gap-1">
+          <h2 className="text-2xl font-semibold">Study material</h2>
+          <p className="text-soft">
+            Textbooks, articles and web pages. Each topic gets the pages or section to read, and
+            topics no video teaches are sent here first. Material never adds topics of its own.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 rounded-card border border-line bg-raised p-5">
+          {readings.length ? (
+            <ul className="divide-y divide-line">
+              {readings.map((doc) => (
+                <DocumentRow
+                  key={doc.id}
+                  doc={doc}
+                  locked={busy}
+                  onRemove={() => removeDocument.mutate(doc.id)}
+                />
+              ))}
+            </ul>
+          ) : null}
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (pageUrl.trim()) addWebPage.mutate();
+            }}
+          >
+            <div className="flex-1">
+              <Field
+                label="Web page or online PDF"
+                value={pageUrl}
+                onChange={(e) => setPageUrl(e.target.value)}
+                placeholder="https://en.wikipedia.org/wiki/Paging"
+                error={addWebPage.error ? errorText(addWebPage.error) : undefined}
+                inputMode="url"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              className={cx("h-11", addWebPage.error && "sm:mb-7")}
+              busy={addWebPage.isPending}
+              disabled={!pageUrl.trim() || busy}
+            >
+              Add page
+            </Button>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<UploadSimple size={15} />}
+              disabled={busy}
+              busy={upload.isPending && uploadKind.current === "reading"}
+              onClick={() => chooseFiles("reading")}
+            >
+              Upload a book or article
+            </Button>
+            <Button
+              variant="quiet"
+              size="sm"
+              icon={<ClipboardText size={15} />}
+              disabled={busy}
+              onClick={() => setPasting("reading")}
+            >
+              Paste text
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <section className="flex flex-col gap-4 rounded-card border border-line bg-sunken p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex max-w-[56ch] flex-col gap-1">
@@ -420,7 +510,11 @@ function SourcesTab({ project, busy }: TabProps) {
       <Dialog
         open={pasting !== null}
         onClose={() => setPasting(null)}
-        title={`Paste ${KINDS.find((k) => k.kind === pasting)?.title.toLowerCase() ?? "text"}`}
+        title={`Paste ${
+          pasting === "reading"
+            ? "study material"
+            : (KINDS.find((k) => k.kind === pasting)?.title.toLowerCase() ?? "text")
+        }`}
       >
         <form
           className="flex flex-col gap-5"

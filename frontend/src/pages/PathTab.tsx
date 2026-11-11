@@ -346,13 +346,24 @@ export function YouTubeFinder({
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "warn" }) {
+function Stat({
+  label,
+  value,
+  tone,
+  note,
+}: {
+  label: string;
+  value: string;
+  tone?: "warn";
+  note?: string;
+}) {
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-[13px] text-faint">{label}</dt>
       <dd className={cx("tabular font-mono text-2xl md:text-3xl", tone === "warn" && "text-warn")}>
         {value}
       </dd>
+      {note ? <dd className="text-[13px] text-soft">{note}</dd> : null}
     </div>
   );
 }
@@ -403,7 +414,12 @@ export function PathTab({ project, busy, play }: TabProps) {
     <div className="flex flex-col gap-10">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-line pb-8 md:grid-cols-4">
         <Stat label="Topics with a video" value={`${stats.matched}/${stats.topics}`} />
-        <Stat label="No video found" value={String(stats.gaps)} tone={stats.gaps ? "warn" : undefined} />
+        <Stat
+          label="No video found"
+          value={String(stats.gaps)}
+          tone={stats.gaps ? "warn" : undefined}
+          note={stats.gaps_with_reading ? `${stats.gaps_with_reading} explained in your reading` : undefined}
+        />
         <Stat label="Left to watch" value={span(stats.remaining_seconds)} />
         <Stat label="Videos watched" value={`${stats.watched}/${stats.videos}`} />
       </dl>

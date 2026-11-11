@@ -73,10 +73,10 @@ had this setting on 2026-11-11. To test motion in Chrome DevTools, override
 | `depth.tsx` | `Tilt`, `Layer`, `DepthFloor`: the 3D look outside the hero |
 | `sample.ts` | Real sample data for the landing page |
 | `scene/HeroScene.tsx` | The 3D hero |
-| `pages/parts.tsx` | PathRow, GapRow, KnownRow, QuestionCard, FocusRow (shared with the landing page) |
+| `pages/parts.tsx` | PathRow, GapRow, KnownRow, QuestionCard, FocusRow (shared with the landing page); `Readings`: where to read about a topic (document, pages, § heading, deep link for web pages). On a gap row the reading is the main suggestion with its excerpt; on a matched row it is an "Also read" list |
 | `pages/Landing.tsx` | Hero, inputs bento, live path preview, feedback demo, questions, closing |
 | `pages/Auth.tsx`, `Projects.tsx` | Sign in and up; course list |
-| `pages/Workspace.tsx` | Course shell, tabs, job progress, Sources tab, player |
+| `pages/Workspace.tsx` | Course shell, tabs, job progress, Sources tab (playlists, documents, and "Study material": web page or online PDF by address, book/article upload, paste), player |
 | `pages/PathTab.tsx` | The learning path (each entry shows "study 2:43 to 6:10" and a transcript excerpt; the player stops at the end), feedback with an undo bar ("Already in my playlist" marks a topic covered), alternates, gap filling from YouTube |
 | `pages/MoreTabs.tsx` | Focus (most important topics, plus the LDA "What your playlists cover" map), Questions, Search, Topics (with "Order like my playlists") |
 

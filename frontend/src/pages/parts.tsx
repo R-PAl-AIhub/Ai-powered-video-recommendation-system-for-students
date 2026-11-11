@@ -1,9 +1,19 @@
 /** Building blocks of the learning path, shared by the app and by the landing
  *  page (which shows these same components with sample data). */
-import { ArrowBendDownRight, Check, Notebook, Play, Target, Warning } from "@phosphor-icons/react";
+import {
+  ArrowBendDownRight,
+  ArrowSquareOut,
+  BookOpenText,
+  Check,
+  Globe,
+  Notebook,
+  Play,
+  Target,
+  Warning,
+} from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import type { Question, Recommendation, Topic, Video } from "../api";
+import type { Question, Reading, Recommendation, Topic, Video } from "../api";
 import { clock, compact, cx, plural, studyRange } from "../format";
 import { Layer, Tilt } from "../depth";
 import { Chip } from "../ui";
@@ -148,9 +158,13 @@ export function PathRow({
         {pick.uncovered.length ? (
           <p className="flex items-start gap-2 text-[13px] text-warn">
             <Warning size={15} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-            <span>No video covers: {pick.uncovered.join("; ")}. Study this part from your notes.</span>
+            <span>
+              No video covers: {pick.uncovered.join("; ")}.{" "}
+              {topic.readings.length ? "Your reading below explains it." : "Study this part from your notes."}
+            </span>
           </p>
         ) : null}
+        {topic.readings.length ? <Readings readings={topic.readings} title="Also read" /> : null}
         {children}
       </div>
     </li>
@@ -202,11 +216,80 @@ export function GapRow({
       <div className="col-start-2 mt-3 flex min-w-0 flex-col gap-3 md:col-start-3 md:mt-0">
         <p className="flex items-start gap-2 rounded-field border border-warn/30 bg-warn-bg px-3 py-2.5 text-sm text-warn">
           <Warning size={17} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-          <span>Video not found for “{topic.name}”. Study this one from your notes or textbook.</span>
+          <span>
+            Video not found for “{topic.name}”.{" "}
+            {topic.readings.length
+              ? "Your study material explains it:"
+              : "Study this one from your notes or textbook."}
+          </span>
         </p>
+        {topic.readings.length ? <Readings readings={topic.readings} detailed /> : null}
         {children}
       </div>
     </li>
+  );
+}
+
+/** "pp. 11–12", "p. 4", or "" for material without pages. */
+export function pageRange(reading: Reading): string {
+  const { page_start: start, page_end: end, page_label: label } = reading;
+  if (!start) return "";
+  const pages = end > start ? `pp. ${start}–${end}` : `p. ${start}`;
+  return label ? `${pages} (printed ${label})` : pages;
+}
+
+/** Where to read about a topic in the student's books, articles and notes. */
+export function Readings({
+  readings,
+  title,
+  detailed = false,
+}: {
+  readings: Reading[];
+  title?: string;
+  detailed?: boolean; // show the excerpt (the main suggestion on a gap)
+}) {
+  return (
+    <ul className="flex flex-col gap-2 rounded-field border border-line px-3 py-2.5">
+      {title ? <li className="text-[13px] font-medium text-soft">{title}</li> : null}
+      {readings.map((reading) => {
+        const Icon = reading.url ? Globe : reading.kind === "notes" ? Notebook : BookOpenText;
+        const where = [pageRange(reading), reading.heading ? `§ ${reading.heading}` : ""]
+          .filter(Boolean)
+          .join(", ");
+        const name = (
+          <span className="line-clamp-1 font-medium text-ink">
+            {reading.document}
+            {reading.url ? (
+              <ArrowSquareOut size={13} className="ml-1 inline align-[-1px] text-faint" aria-hidden />
+            ) : null}
+          </span>
+        );
+        return (
+          <li key={`${reading.document_id}-${reading.page_start}-${reading.heading}`} className="flex gap-2.5 text-sm">
+            <Icon size={17} className="mt-0.5 shrink-0 text-accent-ink" aria-hidden />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {reading.url ? (
+                <a
+                  href={reading.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-accent-ink"
+                  aria-label={`Read ${reading.document}${where ? `, ${where}` : ""} (opens in a new tab)`}
+                >
+                  {name}
+                </a>
+              ) : (
+                name
+              )}
+              {where ? <span className="tabular text-[13px] text-accent-ink">{where}</span> : null}
+              {detailed && reading.snippet ? (
+                <span className="line-clamp-3 text-[13px] leading-relaxed text-soft">“{reading.snippet}”</span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
