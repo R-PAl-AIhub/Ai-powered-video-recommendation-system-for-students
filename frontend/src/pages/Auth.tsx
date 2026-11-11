@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type FormEvent, lazy, Suspense, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 
-import { api, ApiError } from "../api";
+import { api, ApiError, IS_DEMO } from "../api";
 import { DepthFloor } from "../depth";
 
 const HeroScene = lazy(() => import("../scene/HeroScene"));
@@ -16,9 +16,10 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
   const location = useLocation();
   const destination = (location.state as { from?: string } | null)?.from ?? "/app";
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // The static demo signs anyone in to its one sample course.
+  const [name, setName] = useState(IS_DEMO ? "Demo student" : "");
+  const [email, setEmail] = useState(IS_DEMO ? "demo@example.com" : "");
+  const [password, setPassword] = useState(IS_DEMO ? "demo-password" : "");
   const signup = mode === "signup";
 
   const submit = useMutation({
@@ -67,6 +68,14 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
               : "Sign in to pick up your study path where you left it."}
           </p>
         </div>
+
+        {IS_DEMO ? (
+          <Notice>
+            This is the live demo: it opens a real course (a Neso Academy playlist, a university
+            syllabus and past paper, textbook chapters as reading) without a server. Browsing works;
+            changes need your own copy.
+          </Notice>
+        ) : null}
 
         <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
           {signup ? (

@@ -30,11 +30,40 @@ demo on GitHub Pages, a Docker image on GHCR and a `render.yaml` for the full st
    separate worker sharing the `/data` volume), `render.yaml` (standard plan for the
    models' memory), `.env.example`. No Docker on this machine: the image is first
    built by CI (step 4).
-4. CI in `.github/workflows/` (push it in its own commit; a credential without the
-   `workflow` scope rejects it).
-5. GitHub Pages demo: `VITE_DEMO` build of the frontend with the real sample data,
-   `base` set only for that build, pushed to `gh-pages`.
-6. README.
+4. ~~CI~~ (pushed 2026-11-11, `7c94784`, `.github/workflows/ci.yml`: lint, tests on
+   SQLite and PostgreSQL via `TEST_DATABASE_URL`, evaluation gate, frontend build,
+   Docker image to `ghcr.io/r-pal-aihub/waypoint`). **Result of the first run not yet
+   checked.** Check it without `gh`:
+   `curl -s https://api.github.com/repos/R-PAl-AIhub/Ai-powered-video-recommendation-system-for-students/actions/runs?per_page=3`
+   (then `.../actions/runs/<id>/jobs` for failing steps). The PostgreSQL job has never
+   run before; expect real bugs there and fix them.
+5. **GitHub Pages demo: code done and browser-checked locally, NOT yet published.**
+   Done: `VITE_DEMO=1` build answers from `frontend/src/demo-data.json` (made by
+   `backend/evaluation/export_demo.py` from a copy of `data/demo.db` with OSTEP and
+   Wikipedia readings; no real name or e-mail in it), `src/demo.ts`, `IS_DEMO` in
+   `api.ts`, prefilled sign-in with a demo notice in `Auth.tsx`, router `basename`
+   from `BASE_URL`, `base` from `PAGES_BASE` in `vite.config.ts`. Checked at 1440 and
+   390 wide: sign-in, course list, Path (readings on gaps, "pp. 11–12, § 31.5
+   Reader-Writer Locks"), Sources, read-only message on edits, no console errors.
+   **Remaining, in order:**
+   a. Add `"build:pages": "tsc --noEmit && vite build --outDir dist-pages"` to
+      `frontend/package.json`, and `frontend/dist-pages/` to `.gitignore`.
+   b. After building, copy `dist-pages/index.html` to `dist-pages/404.html` (deep
+      links on Pages) and add an empty `dist-pages/.nojekyll`.
+   c. Write `.github/workflows/pages.yml`: on push to main (paths `frontend/**`),
+      `npm ci`, then `VITE_DEMO=1 PAGES_BASE=/${{ github.event.repository.name }}/
+      npm run build:pages`, the step b copies, then force-push `dist-pages` to the
+      `gh-pages` branch with `GITHUB_TOKEN` (`permissions: contents: write`).
+   d. Push, then check https://r-pal-aihub.github.io/Ai-powered-video-recommendation-system-for-students/
+      If it stays 404, Pages must be switched on once in the repository settings
+      (Settings > Pages > Deploy from branch `gh-pages`, folder `/`); ask the owner
+      or use their logged-in browser.
+   Local build tip on Windows Git Bash: prefix `MSYS_NO_PATHCONV=1`, or the base
+   path gets rewritten into a Windows path.
+6. README: live demo link and what it cannot do (read-only, no server), `docker
+   compose up`, the Render blueprint (standard plan; 512 MB is too small for the
+   models unless `RERANKER_MODEL` is empty), configuration from `.env.example`.
+   It replaces the root `STATUS.md` pointer.
 
 Earlier: **study material beyond videos** (owner, 2026-11-11): let the student add books, articles, web pages and notes as study sources, and recommend the right pages or sections per topic alongside the videos, especially for gaps. Every buildable gap in [[Requirements Checklist]] is closed (2026-11-11). Previously: **close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
 the idea document is the sole source of truth; every point must be built). Then
@@ -167,7 +196,9 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Deployment files: Dockerfile, docker-compose (PostgreSQL + API + worker), render.yaml, .env.example; Vercel ruled out (recorded in [[Decisions]]). Not yet built: no Docker here; CI builds it next. |
+| 2026-11-11 | (this commit) | Static demo mode for GitHub Pages (`VITE_DEMO=1`, real course snapshot with readings, export script); checked in the browser locally. Not yet published; see "Resume here" step 5. |
+| 2026-11-11 | `7c94784` | CI workflow (lint, SQLite and PostgreSQL tests, evaluation gate, frontend build, image to GHCR); first run not yet checked. |
+| 2026-11-11 | `ca18315` | Deployment files: Dockerfile, docker-compose (PostgreSQL + API + worker), render.yaml, .env.example; Vercel ruled out (recorded in [[Decisions]]). Not yet built: no Docker here; CI builds it next. |
 | 2026-11-11 | `2a2eb3c` | Study material UI: Sources tab section (web page or online PDF, upload, paste); "Also read" on path rows; readings as the main suggestion on gap rows; gap stat counts gaps the reading explains. Frontend builds. |
 | 2026-11-11 | `3b88844` | Study material beyond videos (backend): `reading` documents (files, pasted text, web pages via `POST /documents/url` with SSRF protection), passages with PDF pages and section headings, readings per topic matched like videos (migration 0005). Real check with OSTEP chapters and Wikipedia: 11 of 12 readings on the right section, 8 fill video gaps. 74 tests pass; gate passes. |
 | 2026-11-11 | (this commit) | Topics taught across several stretches: part series, repeated teaching, and set cover of a topic's parts across playlists, with uncovered parts listed (migration 0004). Six worst-case tests; gate checks zero unneeded splits. 55 tests pass. |

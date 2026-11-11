@@ -251,7 +251,15 @@ function messageFrom(body: unknown, status: number): string {
   return "Something went wrong. Please try again.";
 }
 
+/** True in the static demo build (GitHub Pages), which has no server. */
+export const IS_DEMO = import.meta.env.VITE_DEMO === "1";
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (IS_DEMO) {
+    // Loaded only in the demo build; the normal build drops this branch.
+    const { demoRequest } = await import("./demo");
+    return demoRequest<T>(method, path);
+  }
   const isForm = body instanceof FormData;
   let response: Response;
   try {

@@ -3,6 +3,11 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // "/" when the backend serves the app; the repository path for the GitHub Pages demo.
+  // (Read through globalThis so the type-check needs no Node type definitions.)
+  base:
+    (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env
+      .PAGES_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
