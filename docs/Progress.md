@@ -38,7 +38,7 @@ note and committing after each:
    Add spell-check after OCR (correct out-of-vocabulary words against the course
    vocabulary). Add a Google Vision backend (`OCR_BACKEND=google`, API key) for
    handwriting.
-7. **Topic transitions mined from playlist order**, and a sequencing bonus when one
+7. ~~**Topic transitions mined from playlist order**~~ (done 2026-11-11). Was:, and a sequencing bonus when one
    pick's end leads into the next pick's start.
 8. **Optional ASR** (faster-whisper) for videos without captions, paced, off by
    default.
@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Topic order mined from the playlists (auto when no syllabus; button in Topics); content-chaining bonus in sequencing. 47 tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | OCR verified on real files (scanned PDF, handwriting-style photo, Word); spell-check of OCR text against course vocabulary; Google Vision backend for handwriting. 45 tests pass. |
 | 2026-11-11 | (this commit) | Topics found only in notes or past papers are added after the closest syllabus topic; better note-heading detection. Tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | Fuzzy ranking now uses upload age, comment volume and comment sentiment (Data API, migration 0003). 40 tests pass; gate 25/25. |

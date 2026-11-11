@@ -28,6 +28,7 @@ from ..services.matching import Match
 from ..services.path import build_path, build_questions, video_out, video_url
 from ..services.pipeline import ingest_single_video
 from ..services.recommend import (
+    playlist_topic_order,
     rebuild_recommendations,
     relearn_threshold,
     search_project,
@@ -128,6 +129,19 @@ def delete_topic(
     topic_id: int, project: Project = Depends(idle_project), db: Session = Depends(get_db)
 ):
     db.delete(_topic(db, project, topic_id))
+    project.topics_locked = True
+    return _refresh(db, project)
+
+
+@router.post("/topics/order/from-playlists", response_model=PathOut)
+def order_topics_like_playlists(
+    project: Project = Depends(idle_project), db: Session = Depends(get_db)
+):
+    """Reorder the path the way the student's playlists teach the topics."""
+    mined = playlist_topic_order(db, project)
+    by_id = {t.id: t for t in project.topics}
+    for position, topic_id in enumerate(mined.order):
+        by_id[topic_id].position = position
     project.topics_locked = True
     return _refresh(db, project)
 

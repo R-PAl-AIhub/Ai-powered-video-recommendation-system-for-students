@@ -24,7 +24,7 @@ from .embeddings import get_embedder, to_blob
 from .fuzzy import comment_sentiment
 from .matching import invalidate_index
 from .questions import link_questions
-from .recommend import ensure_topic_vectors, rebuild_recommendations
+from .recommend import ensure_topic_vectors, playlist_topic_order, rebuild_recommendations
 from .topics import ExtractedTopic, extract_topics, headings_from_notes, keyphrase_topics
 from .youtube import (
     Transcript,
@@ -581,6 +581,15 @@ def run_pipeline(
 
     stage_report("matching", 0, "Matching topics to videos")
     ensure_topic_vectors(db, project, get_embedder(), force=True)
+    if project.topics and not project.topics_locked and all(
+        t.source in ("notes", "exam") for t in project.topics
+    ):
+        # No syllabus to give the order: follow the order the playlists teach in.
+        positions = {tid: i for i, tid in enumerate(playlist_topic_order(db, project).order)}
+        for topic in project.topics:
+            topic.position = positions.get(topic.id, topic.position)
+        db.flush()
+        db.refresh(project)
     rebuild_recommendations(db, project)
     stage_report("matching", 0.6, "Linking past exam questions to videos")
     link_questions(db, project)

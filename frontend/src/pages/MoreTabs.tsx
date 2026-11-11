@@ -3,6 +3,7 @@ import {
   ChatsCircle,
   Check,
   DotsSixVertical,
+  ListNumbers,
   MagnifyingGlass,
   PencilSimple,
   Plus,
@@ -402,6 +403,16 @@ export function TopicsTab({ project, busy }: TabProps) {
             order. {plural(topics.length, "topic")}.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<ListNumbers size={15} />}
+          disabled={locked || topics.length < 2}
+          onClick={() => change.mutate(() => api.orderLikePlaylists(project.id))}
+        >
+          Order like my playlists
+        </Button>
         {project.topics_locked ? (
           <Button
             variant="outline"
@@ -414,6 +425,7 @@ export function TopicsTab({ project, busy }: TabProps) {
             Read again from documents
           </Button>
         ) : null}
+        </div>
       </div>
 
       {change.error ? <Notice tone="danger">{errorText(change.error)}</Notice> : null}

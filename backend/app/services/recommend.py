@@ -407,6 +407,88 @@ def _rank_score(
 # ---------------------------------------------------------------- recommendations
 
 
+def _stretch_vector(index: ProjectIndex, column: int, chunk_scores: np.ndarray):
+    """Embedding of the chunk that best teaches the topic in this video."""
+    start, end = index.spans[column]
+    if end - start <= 1:
+        return index.matrix[start]
+    return index.matrix[start + 1 + int(np.argmax(chunk_scores[start + 1 : end]))]
+
+
+@dataclass
+class PlaylistOrder:
+    order: list[int]  # topic ids in the order the playlists teach them
+    transitions: list[tuple[str, str, int]]  # (topic, next topic, times seen)
+
+
+def playlist_topic_order(db: Session, project: Project) -> PlaylistOrder:
+    """The topic order the student's playlists follow, mined from the videos.
+
+    Each video is labelled with the topic it teaches best; walking every playlist
+    in its own order then gives "topic Y follows topic X" transitions, as in
+    sequential-pattern mining over a teacher's curriculum. Topics are ordered by
+    where they first appear in the student's playlists (earlier playlists first);
+    topics no video teaches keep their place after the topic before them.
+    """
+    embedder = get_embedder()
+    ensure_topic_vectors(db, project, embedder)
+    topics = list(project.topics)
+    index = get_index(db, project.id, embedder)
+    if not topics or index.empty:
+        return PlaylistOrder([t.id for t in topics], [])
+    acronyms = acronym_map(project)
+    texts = [query_text(t, acronyms) for t in topics]
+    scores = hybrid_scores(
+        embedder,
+        np.vstack([from_blob(t.embedding) for t in topics]),
+        [_lexical_text(text, t) for text, t in zip(texts, topics, strict=True)],
+        index.matrix,
+        index.vectorizer,
+        index.tfidf,
+    )
+    relevance = video_relevance(index, scores)
+    rank = {p.id: r for r, p in enumerate(project.playlists)}
+    threshold = project.relevance_threshold
+
+    # Where each topic is first taught: (playlist rank, position in that playlist).
+    first_seen: dict[int, tuple[int, int]] = {}
+    for row, topic in enumerate(topics):
+        hits = [
+            (rank.get(index.videos[c].playlist_id, len(rank)), index.videos[c].playlist_position)
+            for c in np.flatnonzero(relevance[row] >= threshold)
+        ]
+        if hits:
+            first_seen[topic.id] = min(hits)
+
+    # Transitions along each playlist, between the topics videos teach best.
+    counts: dict[tuple[int, int], int] = {}
+    by_playlist: dict[object, list[tuple[int, int]]] = {}
+    for column, video in enumerate(index.videos):
+        best = int(np.argmax(relevance[:, column]))
+        if relevance[best, column] >= threshold and video.playlist_id is not None:
+            by_playlist.setdefault(video.playlist_id, []).append((video.playlist_position, best))
+    for sequence in by_playlist.values():
+        sequence.sort()
+        for (_, a), (_, b) in zip(sequence, sequence[1:], strict=False):
+            if a != b:
+                counts[(a, b)] = counts.get((a, b), 0) + 1
+    transitions = sorted(
+        ((topics[a].name, topics[b].name, n) for (a, b), n in counts.items()),
+        key=lambda item: -item[2],
+    )
+
+    # Sort taught topics by first appearance; untaught ones follow their predecessor.
+    order: list[int] = []
+    taught = sorted(first_seen, key=lambda tid: (first_seen[tid], [t.id for t in topics].index(tid)))
+    order = list(taught)
+    for position, topic in enumerate(topics):
+        if topic.id in first_seen:
+            continue
+        previous = next((t.id for t in reversed(topics[:position]) if t.id in order), None)
+        order.insert(order.index(previous) + 1 if previous is not None else 0, topic.id)
+    return PlaylistOrder(order, transitions[:20])
+
+
 def _age_years(published) -> float | None:
     if published is None:
         return None
@@ -519,6 +601,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
                         playlist_position=video.playlist_position,
                         channel=video.channel,
                         pinned=video.id == pinned_video,
+                        vector=_stretch_vector(index, column, scores[row]),
                     ),
                     column,
                 )

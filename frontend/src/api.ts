@@ -291,6 +291,8 @@ export const api = {
     request<Path>("PATCH", `${project(id)}/topics/${topicId}`, body),
   deleteTopic: (id: number, topicId: number) =>
     request<Path>("DELETE", `${project(id)}/topics/${topicId}`),
+  orderLikePlaylists: (id: number) =>
+    request<Path>("POST", `${project(id)}/topics/order/from-playlists`),
   reorderTopics: (id: number, ids: number[]) =>
     request<Path>("PUT", `${project(id)}/topics/order`, { ids }),
   youtubeSearch: (id: number, body: { topic_id?: number; query?: string }) =>

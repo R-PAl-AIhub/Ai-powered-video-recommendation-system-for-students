@@ -553,3 +553,31 @@ def test_topics_only_in_notes_or_exams_are_added(client):
     assert topics["Thrashing"]["unit"] == "Unit 1: Memory"
     assert not any("example" in name.lower() or "diagram" in name.lower() for name in topics)
     assert sum(1 for name in topics if name.lower() == "paging") == 1
+
+
+def test_topics_can_be_ordered_the_way_the_playlists_teach_them(client, course):
+    before = [t["name"] for t in path_of(client, course)["topics"]]
+    after = client.post(f"/api/projects/{course}/topics/order/from-playlists")
+    assert after.status_code == 200
+    names = [t["name"] for t in after.json()["topics"]]
+    assert sorted(names) == sorted(before)
+    assert names.index("Paging") < names.index("Virtual memory")
+    assert names.index("Concept of Operating Systems") < names.index("Paging")
+    # Main playlist topics come before those only the revision playlist covers.
+    assert names.index("Page replacement algorithms") < names.index("Segmentation")
+    assert client.get(f"/api/projects/{course}").json()["topics_locked"] is True
+
+
+def test_chain_bonus_prefers_videos_that_continue_each_other():
+    import numpy as np
+
+    from app.services.sequencing import Candidate, chain_bonus, choose_path
+
+    a = np.array([1.0, 0.0])
+    near = np.array([0.95, 0.312])
+    far = np.array([0.0, 1.0])
+    first = Candidate(video_id=1, score=0.8, vector=a)
+    continues = Candidate(video_id=2, score=0.8, vector=near / np.linalg.norm(near))
+    unrelated = Candidate(video_id=3, score=0.8, vector=far)
+    assert chain_bonus(first, continues) > 0 == chain_bonus(first, unrelated)
+    assert choose_path([[first], [unrelated, continues]]) == [0, 1]

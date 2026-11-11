@@ -18,6 +18,8 @@ FORWARD_IN_PLAYLIST = 0.03
 BACKWARD_IN_PLAYLIST = -0.02
 SAME_CHANNEL = 0.03
 PLAYLIST_PRIORITY = 0.015  # per rank: earlier playlists in the student's list are preferred
+CHAIN = 0.03  # most a content hand-over between two different videos can add
+CHAIN_FROM, CHAIN_FULL = 0.60, 0.85  # cosine range over which the bonus grows
 PINNED = 10.0  # a video the student confirmed always wins its topic
 
 
@@ -30,11 +32,26 @@ class Candidate:
     playlist_position: int = 0
     channel: str = ""
     pinned: bool = False
+    # Embedding of the stretch that teaches the topic; used to chain videos whose
+    # content leads into each other.
+    vector: object | None = None
+
+
+def chain_bonus(previous: Candidate, current: Candidate) -> float:
+    """Bonus when the next video's material continues the previous one's (by meaning)."""
+    if previous.vector is None or current.vector is None:
+        return 0.0
+    similarity = float(previous.vector @ current.vector)
+    return CHAIN * min(1.0, max(0.0, (similarity - CHAIN_FROM) / (CHAIN_FULL - CHAIN_FROM)))
 
 
 def transition(previous: Candidate, current: Candidate) -> float:
     if previous.video_id == current.video_id:
         return SAME_VIDEO
+    return _continuity(previous, current) + chain_bonus(previous, current)
+
+
+def _continuity(previous: Candidate, current: Candidate) -> float:
     if previous.playlist_id is not None and previous.playlist_id == current.playlist_id:
         step = (
             FORWARD_IN_PLAYLIST
