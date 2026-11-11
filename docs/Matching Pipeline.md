@@ -1,0 +1,66 @@
+# Matching Pipeline
+
+Back to [[Project Map]]. This is the core of the product. It is tuned and measured;
+change it only with the tools in [[Evaluation and Testing]].
+
+## Steps
+
+1. **Topics** (`services/topics.py`). The syllabus is parsed into units and topics:
+   unit headings, comma and bullet lists, "Heading: a, b, c" groups. Generic items
+   get context ("Deadlocks: Definition"). Fallbacks: headings in the notes, then key
+   phrases.
+2. **Video text** (`services/pipeline.py`). Each video becomes chunks: chunk 0 is
+   title, chapters and description; the rest are windows of about 75 seconds of
+   transcript.
+3. **Topic wording** (`query_text()` in `services/recommend.py`). "X: Definition" is
+   matched as "X". Abbreviations are spelled out from the course subject ("OS").
+4. **Stage 1, shortlist** (`services/matching.py`). Embedding cosine
+   (`BAAI/bge-small-en-v1.5`) plus a TF-IDF boost scores every chunk. Chunk scores
+   roll up to one relevance per video. The best six videos per topic go on.
+5. **Stage 2, rerank** (`rerank_relevance()`). A cross-encoder
+   (`Xenova/ms-marco-MiniLM-L-6-v2`) reads the topic against each shortlisted video's
+   title chunk and its top three transcript chunks. Its score becomes the relevance:
+   `relevance = s2 * (1 - 0.15 * (1 - s1))`.
+6. **Quality** (`services/fuzzy.py`). A small fuzzy inference system turns length,
+   views and likes into a quality value that can discount relevance by up to 25%.
+7. **Tie-breakers.** Bonus when the video title names the topic; small penalty for
+   worked-problem videos so the concept lecture comes first.
+8. **Sequencing** (`services/sequencing.py`). Viterbi over topics in syllabus order,
+   with bonuses for staying in the same video, playlist or channel.
+9. **Timestamp** (`locate()` in `services/matching.py`). The start of the run of
+   on-topic chunks around the best chunk.
+10. **Signals from documents.** Past questions are counted per topic (`exam_hits`);
+    notes passages mark topics as `in_notes`. Importance is 75% exam frequency, 25%
+    notes. Each past question is also searched like a topic to find its answering
+    moment (`services/questions.py`).
+11. **Feedback** (`load_feedback()`, `learn_threshold()`). Correct pins a video;
+    wrong topic blocks the pair; irrelevant blocks the video everywhere; already
+    known removes the topic. The relevance threshold moves to separate confirmed
+    from rejected picks.
+
+## Measured numbers (do not guess new ones; re-measure)
+
+- BGE cosine on lecture text: off-topic but same subject 0.55 to 0.62; topics with
+  no video peak near 0.60; true matches 0.72 to 0.89. Calibration window 0.60 to 0.85.
+- Cross-encoder logit, best of four passages, 60 labelled real pairs: look-alikes
+  peak at 2.72, true matches p10 3.42 and median 7.19, AUC 0.991. Window 0.8 to 4.9
+  puts the best split (2.84) at 0.5.
+- Default relevance threshold 0.5.
+
+## Results
+
+- Synthetic labelled course: 25/25 topics, 3/3 gaps (real models).
+- Real 77-video playlist: all 38 coverable topics matched, 20 uncovered topics
+  reported as gaps, 6 of 8 past questions answered and the other 2 correctly not.
+
+## Known limits
+
+- An English-only embedding model by default. Captions in other languages are
+  translated to English by YouTube when possible; otherwise the video is matched on
+  its title and marked `foreign`. A multilingual `EMBEDDING_MODEL` uses them
+  directly. Not yet verified on real non-English playlists.
+- The lexical fallback (`EMBEDDING_BACKEND=hash`) has no reranker and is weaker.
+
+## Related
+
+[[Architecture]], [[Decisions]], [[Evaluation and Testing]]
