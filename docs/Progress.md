@@ -31,7 +31,7 @@ note and committing after each:
    (`comment_count`) to `services/fuzzy.py`; comment sentiment from Data API
    `commentThreads` when `YOUTUBE_API_KEY` is set. Watch time is not available
    from YouTube (record as not possible).
-5. **Notes and exam topics:** add topics found only in notes or exams, placed after
+5. ~~**Notes and exam topics**~~ (done 2026-11-11). Was: add topics found only in notes or exams, placed after
    the most similar syllabus topic, `source="notes"` / `"exam"`.
 6. **OCR end to end on real files:** upload an image-only PDF, a PNG photo of
    notes and a DOCX to the demo project; confirm `ocr_pages > 0` and topics react.
@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Topics found only in notes or past papers are added after the closest syllabus topic; better note-heading detection. Tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | Fuzzy ranking now uses upload age, comment volume and comment sentiment (Data API, migration 0003). 40 tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | Study ranges (start and end second, migration 0002, player stops at the end), transcript summary on each path entry, "Already in my playlist" label. 39 tests pass; frontend builds. |
 | 2026-11-11 | (this commit) | 3D look across the whole site (`src/depth.tsx`): card tilt with depth layers, perspective floor, landing coverflow, 3D scene on sign-in. Verified in the browser: floor renders; tilt activates with layers applied under a motion-allowed setting. Found the owner's Windows has animation effects off, so motion stays still there by design. |

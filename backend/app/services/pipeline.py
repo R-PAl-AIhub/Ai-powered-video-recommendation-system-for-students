@@ -25,7 +25,7 @@ from .fuzzy import comment_sentiment
 from .matching import invalidate_index
 from .questions import link_questions
 from .recommend import ensure_topic_vectors, rebuild_recommendations
-from .topics import extract_topics
+from .topics import ExtractedTopic, extract_topics, headings_from_notes, keyphrase_topics
 from .youtube import (
     Transcript,
     TranscriptSegment,
@@ -361,6 +361,59 @@ def _topic_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
+# Words that make an exam phrase an instruction rather than a concept.
+_EXAM_NOISE = frozenset(
+    ["explain", "describe", "discuss", "define", "write", "short", "notes", "note", "suitable", "example", "examples", "neat", "diagram", "diagrams", "figure", "calculate", "compute", "find", "compare", "comparison", "differentiate", "difference", "following", "given", "marks", "mark", "answer", "question", "questions", "briefly", "detail", "details", "justify", "state", "list", "illustrate", "consider", "show", "prove", "derive", "what", "which", "why", "how"]
+)
+NEW_TOPIC_MAX_RELEVANCE = 0.45  # a candidate this close to a syllabus topic is not new
+
+
+def add_supplementary_topics(
+    items: list[tuple[ExtractedTopic, str]], notes_texts: list[str], exam_texts: list[str]
+) -> list[tuple[ExtractedTopic, str]]:
+    """Add topics the teacher's notes or the past papers cover but the syllabus
+    does not name, each placed right after the syllabus topic it is closest to.
+
+    Notes contribute their headings; past papers contribute phrases asked in at
+    least two questions. A candidate already covered by a syllabus topic (by
+    meaning, not only by wording) is skipped.
+    """
+    candidates: list[tuple[str, str]] = []
+    notes = "\n\n".join(notes_texts)
+    if notes.strip():
+        candidates += [(t.name, "notes") for t in headings_from_notes(notes, limit=40)]
+    exams = "\n\n".join(exam_texts)
+    if exams.strip():
+        for topic in keyphrase_topics(exams, limit=25):
+            words = set(topic.name.lower().split())
+            if not words & _EXAM_NOISE:
+                candidates.append((topic.name, "exam"))
+    if not candidates or not items:
+        return items
+
+    embedder = get_embedder()
+    low, high = embedder.calibration
+    syllabus = embedder.embed_queries([item.name for item, _ in items])
+    fresh = embedder.embed_queries([name for name, _ in candidates])
+    relevance = (fresh @ syllabus.T - low) / (high - low)
+
+    known = {_topic_key(item.name) for item, _ in items}
+    after: dict[int, list[tuple[ExtractedTopic, str]]] = {}
+    for row, (name, origin) in enumerate(candidates):
+        if _topic_key(name) in known or float(relevance[row].max()) >= NEW_TOPIC_MAX_RELEVANCE:
+            continue
+        known.add(_topic_key(name))
+        anchor = int(relevance[row].argmax()) if float(relevance[row].max()) > 0 else len(items) - 1
+        unit = items[anchor][0].unit
+        after.setdefault(anchor, []).append((ExtractedTopic(unit=unit, name=name), origin))
+
+    merged: list[tuple[ExtractedTopic, str]] = []
+    for index, item in enumerate(items):
+        merged.append(item)
+        merged.extend(after.get(index, []))
+    return merged
+
+
 def sync_topics(db: Session, project: Project, warnings: list[str], *, reextract: bool) -> None:
     """Extract topics from the documents, keeping rows (and their feedback) for
     topics that are still present."""
@@ -383,12 +436,19 @@ def sync_topics(db: Session, project: Project, warnings: list[str], *, reextract
         warnings.append(
             f"No syllabus topics were found, so topics were taken from your {source} instead."
         )
+    items = [(item, source) for item in extracted]
+    if source == "syllabus":
+        items = add_supplementary_topics(
+            items,
+            [d.text for d in ready if d.kind == "notes"],
+            [d.text for d in ready if d.kind == "exam"],
+        )
     existing = {_topic_key(t.name): t for t in project.topics}
     kept: list[Topic] = []
-    for position, item in enumerate(extracted):
+    for position, (item, item_source) in enumerate(items):
         topic = existing.pop(_topic_key(item.name), None)
         if topic is None:
-            topic = Topic(project_id=project.id, name=item.name, source=source)
+            topic = Topic(project_id=project.id, name=item.name, source=item_source)
             topic.unit = item.unit
             project.topics.append(topic)
         elif topic.unit != item.unit:

@@ -392,16 +392,28 @@ def chunk_paragraphs(text: str, target_words: int = 110, limit: int = 1500) -> l
     return [c for c in chunks if len(c.split()) >= 4][:limit]
 
 
+_NOTES_TITLE = re.compile(
+    r"\b(lecture|lectures|notes?|handouts?|unit|chapter|module|week|class|session|slides?)\b",
+    re.IGNORECASE,
+)
+
+
 def headings_from_notes(text: str, limit: int = 80) -> list[ExtractedTopic]:
     """Short title-like lines in lecture notes, in order of appearance."""
     topics: list[ExtractedTopic] = []
-    for line in text.split("\n"):
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
         stripped = line.strip()
         words = stripped.split()
         if not 1 <= len(words) <= 9 or len(stripped) < 4:
             continue
         if stripped.endswith((".", ",", ";", "?")) or _ADMIN.search(stripped):
             continue
+        if _NOTES_TITLE.search(stripped):  # "Lecture notes - Unit 3" names the page
+            continue
+        following = next((ln.strip() for ln in lines[index + 1 :] if ln.strip()), "")
+        # A short capitalised line followed by a sentence is a heading, even one word long.
+        before_prose = len(following.split()) >= 6 and following[:1].isupper()
         body = _LEAD_NUMBERING.sub("", stripped).rstrip(":")
         alpha = [w for w in body.split() if w[:1].isalpha()]
         if not alpha:
@@ -412,6 +424,7 @@ def headings_from_notes(text: str, limit: int = 80) -> list[ExtractedTopic]:
             or body.isupper()
             or bool(_NUMBERED.match(stripped))
             or (capitalised >= max(1, round(len(alpha) * 0.6)) and len(alpha) >= 2)
+            or (before_prose and len(alpha) <= 4 and alpha[0][:1].isupper())
         )
         if is_heading:
             cleaned = clean_topic(body)

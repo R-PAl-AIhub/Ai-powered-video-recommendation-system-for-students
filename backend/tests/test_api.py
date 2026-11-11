@@ -523,3 +523,33 @@ def test_comment_sentiment_feeds_the_ranking(client, youtube, db):
     fresh = QualityInputs(900, 100_000, 3_000, age_years=1)
     ancient = QualityInputs(900, 100_000, 3_000, age_years=15)
     assert quality_score(ancient) < quality_score(fresh)
+
+
+
+SYLLABUS_MEMORY = """Unit 1: Memory
+Paging, Segmentation"""
+
+NOTES_MEMORY = """Thrashing
+A process thrashes when it spends more time paging than running.
+
+Paging
+Pages of a process map to frames of memory."""
+
+EXAM_MEMORY = """1. Explain the working set model with a suitable example. [5]
+2. How does the working set model prevent thrashing? [5]
+3. Explain paging with a neat diagram. [5]"""
+
+
+def test_topics_only_in_notes_or_exams_are_added(client):
+    register(client)
+    project_id = client.post("/api/projects", json={"name": "Memory"}).json()["id"]
+    for kind, text in (("syllabus", SYLLABUS_MEMORY), ("notes", NOTES_MEMORY), ("exam", EXAM_MEMORY)):
+        client.post(f"/api/projects/{project_id}/documents/text", json={"kind": kind, "text": text})
+    client.post(f"/api/projects/{project_id}/process")
+    run_jobs()
+    topics = {t["name"]: t for t in client.get(f"/api/projects/{project_id}/path").json()["topics"]}
+    assert topics["Thrashing"]["source"] == "notes"
+    assert topics["Working set model"]["source"] == "exam"
+    assert topics["Thrashing"]["unit"] == "Unit 1: Memory"
+    assert not any("example" in name.lower() or "diagram" in name.lower() for name in topics)
+    assert sum(1 for name in topics if name.lower() == "paging") == 1

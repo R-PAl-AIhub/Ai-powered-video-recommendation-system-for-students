@@ -27,12 +27,12 @@ Last checked: 2026-11-11.
 | Syllabus and past papers uploaded as PDF or text | Done | Upload and paste endpoints; tests upload text. PDF upload path: see OCR row. |
 | Extract keywords and concepts from the syllabus (keyphrase extraction) | Done | `services/topics.py`: unit/topic parsing, keyphrase fallback; checked on 4 syllabus formats and a real syllabus |
 | Analyse exam questions (classification or TF-IDF) to find frequently tested concepts | Done | Questions split and matched to topics (`exam_hits`); "Focus" tab ranks them; `services/questions.py` |
-| (b) A set of exam-focused topics | Partial | Exam questions weight syllabus topics; concepts asked in exams but missing from the syllabus are not added as topics. |
+| (b) A set of exam-focused topics | Done | Exam questions weight syllabus topics, and phrases asked in two or more questions that the syllabus does not cover are added as topics (`source="exam"`), after the closest syllabus topic. Instruction words ("explain", "diagram") are filtered. Test: `test_topics_only_in_notes_or_exams_are_added`. |
 | Teacher's notes, printed or scanned, digitised with OCR | Untested | RapidOCR path in `services/documents.py` and `ocr.py`. Tests run with OCR off; never run on a real scan yet. |
 | OCR with Tesseract or Google Vision | Partial | RapidOCR by default, Tesseract if installed. No Google Vision backend. |
 | Handwritten notes via specialised handwriting recognition (HTR) | Not built | RapidOCR reads neat print and some handwriting. Options: Google Vision document text detection (handles handwriting, needs an API key), or a TrOCR handwriting model. |
 | OCR cleanup: spell-check, segmentation into paragraphs or bullets | Partial | `clean_text` repairs hyphenation, spacing and line breaks; no spell-check. |
-| (c) A set of lecture-note topics; notes summarised or keywords extracted | Partial | Notes mark topics "in your notes" and steer topic vectors. Topics found only in notes are not added unless the syllabus yields fewer than 3 topics. |
+| (c) A set of lecture-note topics; notes summarised or keywords extracted | Done | Note headings (including one-word headings before a paragraph) not covered by the syllabus are added as topics (`source="notes"`), after the closest syllabus topic; notes also mark topics "in your notes" and steer topic vectors. Same test. |
 | Common text format for all inputs, comparable with transcripts | Done | All inputs become plain text, then the same embedding and TF-IDF space |
 
 ## Matching
