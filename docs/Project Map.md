@@ -65,6 +65,7 @@ mindmap
 | Note | What it covers |
 |---|---|
 | [[Goal and Requirements]] | The idea, every requirement the owner added, what "done" means |
+| [[Requirements Checklist]] | Every requirement in the idea document with its status and evidence |
 | [[Progress]] | Checkpoint log, current state, next steps in order |
 | [[Architecture]] | Components, data model, request and job flow |
 | [[Matching Pipeline]] | How a topic becomes a video recommendation, with measured numbers |
