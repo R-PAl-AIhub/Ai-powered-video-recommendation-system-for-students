@@ -26,6 +26,7 @@
   --warn: #9a5b00;
   --warn-bg: rgb(214 138 20 / 0.14);
   --danger: #b3261e;
+  --screen: #1b1d21;
   --shadow: 0 1px 2px rgb(40 46 30 / 0.06), 0 12px 32px -12px rgb(40 46 30 / 0.18);
   color-scheme: light;
 }
@@ -45,6 +46,7 @@
   --warn: #ffb454;
   --warn-bg: rgb(255 180 84 / 0.12);
   --danger: #ff7a6e;
+  --screen: #1d2025;
   --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -18px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
@@ -65,6 +67,8 @@
     --warn: #ffb454;
     --warn-bg: rgb(255 180 84 / 0.12);
     --danger: #ff7a6e;
+    --screen: #1d2025;
+  --screen: #1d2025;
     --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -18px rgb(0 0 0 / 0.7);
     color-scheme: dark;
   }

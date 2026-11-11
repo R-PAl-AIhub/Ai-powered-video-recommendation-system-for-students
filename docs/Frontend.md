@@ -28,7 +28,9 @@ applied; load it again before any visual work.
 
 ## The 3D scene (`src/scene/HeroScene.tsx`)
 
-Video slabs float in depth along a glowing line, which is the learning path. One
+Video slabs float in depth along a glowing line, which is the learning path. The
+slabs are dark "screens" (`--screen` in `styles.css`) in both themes; with the page
+colour they disappeared into a light background. One
 slab is only a dashed amber outline: a syllabus topic no video covers. A light
 travels the line like a student moving through it. The whole thing leans toward
 the pointer. It is lazy-loaded (three.js is about 180 kB gzipped and only the
@@ -69,8 +71,12 @@ npm run build    # type-check and build into dist/, which the backend serves
 
 ## Status
 
-Type-check and production build pass. **Not yet looked at in a browser**; see
-[[Progress]] for the next step.
+Type-check and production build pass. The landing hero has been checked in a
+browser; the rest is in progress, see [[Progress]].
+
+Browser tools: the Claude-in-Chrome extension may be disconnected; the Chrome
+DevTools MCP tools (`mcp__plugin_ecc_chrome-devtools__*`) work. Full-page
+screenshots of the WebGL page can hang; viewport screenshots work.
 
 ## Related
 

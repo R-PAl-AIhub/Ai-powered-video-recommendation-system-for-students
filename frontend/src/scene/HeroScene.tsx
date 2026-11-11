@@ -18,8 +18,8 @@ function readPalette(): Palette {
   const value = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   return {
     bg: value("--bg", "#0b0c0e"),
-    slab: value("--raised", "#131517"),
-    detail: value("--faint", "#6c716a"),
+    slab: value("--screen", "#1d2025"),
+    detail: "#8b9088", // marks on the dark screen, the same in both themes
     accent: value("--accent", "#c8f542"),
     warn: value("--warn", "#ffb454"),
   };

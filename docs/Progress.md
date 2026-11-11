@@ -36,8 +36,9 @@ and the README are not started.
 
    The backend serves `frontend/dist` at `http://127.0.0.1:8000/` (run
    `npm run build` in `frontend/` first).
-2. Check, in both themes and at phone width: the landing page (does the 3D scene
-   render and read well next to the headline), sign up, the course list, each
+2. Check, in both themes and at phone width: ~~the landing page hero~~ (done,
+   light theme at 1440 wide), the rest of the landing page, sign in (demo account
+   `demo@example.com` / `demo-password-1` in `data/demo.db`), the course list, each
    workspace tab, the player, feedback, and topic drag-reorder.
 3. Check the browser console for Content-Security-Policy violations; the policy is
    in `backend/app/observability.py`.
@@ -92,7 +93,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Project notes vault in `docs/`. Demo database made from the real cache: 8 past questions, 6 answered, and the 2 unanswered are the ones the playlist truly lacks. Server start failed on the old database schema; recorded above. |
+| 2026-11-11 | (this commit) | Browser check started (Chrome DevTools tools; the Claude-in-Chrome extension was disconnected). Landing page renders, the 3D scene works, no console errors besides the expected 401 from `/api/auth/me` when signed out. Fixed: in the light theme the 3D slabs were pale grey and washed out, so they now use a dark "screen" colour (`--screen`) in both themes; the hero headline now fits on two lines. |
+| 2026-11-11 | `6b5f065` | Project notes vault in `docs/`. Demo database made from the real cache: 8 past questions, 6 answered, and the 2 unanswered are the ones the playlist truly lacks. Server start failed on the old database schema; recorded above. |
 | 2026-11-10 | `18eb0f3` | Frontend: 3D landing page and the full app. Builds; not yet seen in a browser. |
 | 2026-11-10 | `a1ad279` | Frontend scaffold: tokens, API client, UI primitives. |
 | 2026-11-10 | `a9f02b1` | Questions and answers, topic importance, YouTube pacing and retry, language handling, 34 API tests. |

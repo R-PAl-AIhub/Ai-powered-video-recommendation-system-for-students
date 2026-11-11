@@ -95,10 +95,10 @@ function Hero() {
       </div>
 
       <div className="mx-auto w-full max-w-[1400px] px-4 pt-24 pb-16 md:px-8">
-        <div className="flex max-w-xl flex-col gap-7">
+        <div className="flex max-w-[42rem] flex-col gap-7">
           <motion.h1
             {...rise(0.05)}
-            className="text-5xl leading-[1.02] font-semibold md:text-6xl lg:text-7xl"
+            className="text-5xl leading-[1.04] font-semibold md:text-6xl"
           >
             Your syllabus, turned into a watch list.
           </motion.h1>
