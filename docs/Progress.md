@@ -9,10 +9,35 @@ Last updated: 2026-11-11.
 ## State in one paragraph
 
 The backend and frontend are complete, tested and browser-checked, with migrations.
-Study material beyond videos has its backend; its UI, the deployment files, CI/CD,
-the GitHub Pages demo and the README are next (see "Resume here").
+Study material beyond videos is built, with its UI. The read-only demo is live on
+GitHub Pages, the owner runs the full app on his PC with `start-waypoint.bat`, and
+the README is written. What remains is optional (see "Resume here").
 
 ## Resume here
+
+**Steps A to D of the owner's decision of 2026-11-11 are done (same day):**
+
+- A. `frontend/deploy-pages.sh` written and run. The demo is live (HTTP 200, assets
+  load) at https://r-pal-aihub.github.io/Ai-powered-video-recommendation-system-for-students/
+  Pages needed no manual switch-on. To republish after frontend changes:
+  `bash frontend/deploy-pages.sh` from Git Bash. Not done: a click-through of the
+  live site in a browser (it was browser-checked locally before publishing).
+- B. `start-waypoint.bat` in the root: checks `backend\.venv`, builds `frontend\dist`
+  if missing, opens http://127.0.0.1:8000, runs uvicorn. **Written but not run**: this
+  PC runs short of memory, so the owner's first double-click is its first test.
+- C. `README.md` in the root (demo link and limits, PC setup and launcher, settings,
+  Docker and Render as optional, republishing the demo). `STATUS.md` removed.
+- D. This note updated, committed and pushed.
+
+**What is left, none of it asked for by the owner yet:**
+
+1. The owner double-clicks `start-waypoint.bat` and signs up once (`backend/data/app.db`).
+2. The first CI run (`ci.yml`, `7c94784`) was never checked; the PostgreSQL job has
+   never run. Not a priority for the owner. Check without `gh`:
+   `curl -s https://api.github.com/repos/R-PAl-AIhub/Ai-powered-video-recommendation-system-for-students/actions/runs?per_page=3`
+3. "To do, in order" items 5 and 6 below (unit tests, more real playlists).
+
+Earlier plan, kept for the record (all done or replaced by the above):
 
 **Owner's instruction (2026-11-11): finish, then deploy on GitHub or Vercel, whichever
 is feasible.** Vercel cannot host the backend (see [[Decisions]]); the plan is a static
@@ -204,7 +229,7 @@ needed, because startup now upgrades old databases automatically.
 6. **Real-world checks still owed**: more real playlists in other subjects, and
    non-English playlists, once YouTube stops rate-limiting this machine. Then decide
    on a multilingual default model and a shared transcript cache across projects.
-7. **README** for users and deployers, replacing the root `STATUS.md` pointer.
+7. ~~README~~ (done 2026-11-11).
 
 ## Known problems
 
@@ -223,6 +248,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Demo published to GitHub Pages with `frontend/deploy-pages.sh` (live, HTTP 200); `start-waypoint.bat` for the full app on the owner's PC (not yet run); `README.md` replaces `STATUS.md`. |
 | 2026-11-11 | (this commit) | Static demo mode for GitHub Pages (`VITE_DEMO=1`, real course snapshot with readings, export script); checked in the browser locally. Not yet published; see "Resume here" step 5. |
 | 2026-11-11 | `7c94784` | CI workflow (lint, SQLite and PostgreSQL tests, evaluation gate, frontend build, image to GHCR); first run not yet checked. |
 | 2026-11-11 | `ca18315` | Deployment files: Dockerfile, docker-compose (PostgreSQL + API + worker), render.yaml, .env.example; Vercel ruled out (recorded in [[Decisions]]). Not yet built: no Docker here; CI builds it next. |

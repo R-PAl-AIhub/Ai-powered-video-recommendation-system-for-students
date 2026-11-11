@@ -57,7 +57,7 @@ mindmap
       Browser check
       Migrations
       Docker and CI
-      README
+      Unit tests
 ```
 
 ## Notes
