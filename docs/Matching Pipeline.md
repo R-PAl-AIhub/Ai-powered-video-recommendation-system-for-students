@@ -27,8 +27,19 @@ change it only with the tools in [[Evaluation and Testing]].
    worked-problem videos so the concept lecture comes first.
 8. **Sequencing** (`services/sequencing.py`). Viterbi over topics in syllabus order,
    with bonuses for staying in the same video, playlist or channel.
-9. **Timestamp** (`locate()` in `services/matching.py`). The start of the run of
-   on-topic chunks around the best chunk.
+9. **Study range** (`locate()` in `services/matching.py`, `rebuild_recommendations`).
+   If the video's title names this topic and no other topic of the course, the
+   student studies the whole video. Otherwise: start where chunks score within 75%
+   of the best chunk, then continue while they stay above 55%, tolerating one
+   off-topic chunk; an end within 60 s of the video's end means "to the end".
+   **Key terms:** a topic's distinctive words that never appear in a video lower its
+   relevance (up to 30%), so "disk scheduling" does not match a CPU-scheduling
+   lecture. **Chaining:** sequencing adds a small bonus when the next pick's
+   stretch is close in meaning to the previous one's. **Transitions:** topic order
+   can be mined from the playlists' own video order (`playlist_topic_order`).
+   **Extra topics:** headings found only in notes, and phrases asked in two or more
+   past questions, become topics after the closest syllabus topic. **Quality** also
+   uses upload age, comment volume and (with the Data API) comment sentiment.
 10. **Signals from documents.** Past questions are counted per topic (`exam_hits`);
     notes passages mark topics as `in_notes`. Importance is 75% exam frequency, 25%
     notes. Each past question is also searched like a topic to find its answering

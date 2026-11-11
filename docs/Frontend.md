@@ -77,8 +77,8 @@ had this setting on 2026-11-11. To test motion in Chrome DevTools, override
 | `pages/Landing.tsx` | Hero, inputs bento, live path preview, feedback demo, questions, closing |
 | `pages/Auth.tsx`, `Projects.tsx` | Sign in and up; course list |
 | `pages/Workspace.tsx` | Course shell, tabs, job progress, Sources tab, player |
-| `pages/PathTab.tsx` | The learning path, feedback with an undo bar, alternates, gap filling from YouTube |
-| `pages/MoreTabs.tsx` | Focus (most important topics), Questions, Search, Topics |
+| `pages/PathTab.tsx` | The learning path (each entry shows "study 2:43 to 6:10" and a transcript excerpt; the player stops at the end), feedback with an undo bar ("Already in my playlist" marks a topic covered), alternates, gap filling from YouTube |
+| `pages/MoreTabs.tsx` | Focus (most important topics, plus the LDA "What your playlists cover" map), Questions, Search, Topics (with "Order like my playlists") |
 
 ## Routes
 

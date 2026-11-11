@@ -24,7 +24,8 @@ from .embeddings import Embedder, from_blob
 
 LEX_FULL = 0.30  # TF-IDF cosine regarded as a complete lexical match
 LEX_BOOST = 0.35  # how far a lexical match can lift a weak semantic score
-HOT_FRACTION = 0.75  # chunks within this fraction of the best chunk count as "on topic"
+HOT_FRACTION = 0.75  # chunks within this fraction of the best chunk are on topic
+STAY_FRACTION = 0.55  # once a stretch has started, it continues while chunks stay above this
 HOT_FLOOR = 0.35
 OUTRO_SECONDS = 60  # an end this close to the video's end means "to the end"
 INTRO_SECONDS = 90  # a topic that starts this early is treated as starting at 0:00
@@ -299,11 +300,16 @@ def locate(index: ProjectIndex, column: int, chunk_scores: np.ndarray, relevance
     best = int(np.argmax(transcript))
     best_score = float(transcript[best])
     hot = transcript >= max(HOT_FRACTION * best_score, HOT_FLOOR)
+    # Start strictly (where the topic is clearly being taught), then continue while
+    # the lecture stays on it; one off-topic chunk inside (an aside) does not end it.
     run_start = best
     while run_start > 0 and hot[run_start - 1]:
         run_start -= 1
+    stay = transcript >= max(STAY_FRACTION * best_score, HOT_FLOOR)
     run_end = best
-    while run_end + 1 < len(hot) and hot[run_end + 1]:
+    while run_end + 1 < len(stay) and (
+        stay[run_end + 1] or (run_end + 2 < len(stay) and stay[run_end + 2])
+    ):
         run_end += 1
     row = start + 1
     start_s = float(index.starts[row + run_start])

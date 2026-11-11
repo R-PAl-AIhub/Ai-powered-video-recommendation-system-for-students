@@ -42,6 +42,7 @@ SHORTLIST_FLOOR = 0.35  # embedding relevance needed to be shortlisted
 RERANK_PASSAGES = 3  # transcript chunks per video read by the cross-encoder
 FIRST_STAGE_WEIGHT = 0.15  # how much a weak embedding score trims the final relevance
 TITLE_BONUS = 0.08  # tie-breaker for a video whose title names the topic
+KEY_TERM_WEIGHT = 0.3  # most a topic's missing words can lower a video's relevance
 PRACTICE_PENALTY = 0.05  # worked-problem videos rank just below the concept lecture
 CONTEXT_WEIGHT = 0.15  # share of the unit-qualified wording in a topic vector
 NOTES_WEIGHT = 0.15  # share of the teacher's notes passage, when one matches
@@ -263,7 +264,7 @@ def relearn_threshold(db: Session, project: Project) -> float:
 # ------------------------------------------------------------------ second stage
 
 _TITLE_STOP = frozenset(
-    ["the", "and", "for", "with", "from", "into", "about", "what", "how", "why", "introduction", "intro", "part", "lecture", "lec", "chapter", "unit", "video", "tutorial", "explained", "explanation", "basics", "basic", "concept", "concepts", "example", "examples", "solved", "problem", "problems", "full", "course", "complete", "operating"]
+    ["the", "and", "for", "with", "from", "into", "about", "what", "how", "why", "introduction", "intro", "part", "lecture", "lec", "chapter", "unit", "video", "tutorial", "explained", "explanation", "basics", "basic", "concept", "concepts", "example", "examples", "solved", "problem", "problems", "full", "course", "complete", "operating", "algorithm", "algorithms", "method", "methods", "technique", "techniques"]
 )
 
 
@@ -385,6 +386,42 @@ def rerank_relevance(
             second = reranker.calibrate(max(known[r] for r in rows))
             out[row, column] = second * (1.0 - FIRST_STAGE_WEIGHT * (1.0 - first))
     return out
+
+
+_KEY_STOP = frozenset(
+    ["and", "the", "for", "with", "from", "into", "about", "over", "under", "than", "then", "that", "this", "those", "these", "what", "when", "where", "which", "their", "there", "have", "been", "were", "will", "would", "could", "should", "also", "each", "such", "using", "used", "other", "more", "most", "some", "many", "much", "very", "only", "just"]
+)
+
+
+def _key_words(text: str) -> list[str]:
+    words = re.findall(r"[a-z][a-z0-9]{2,}", text.lower())
+    return [w for w in dict.fromkeys(words) if w not in _KEY_STOP and w not in _TITLE_STOP]
+
+
+def apply_key_terms(index: ProjectIndex, queries: list[str], relevance: np.ndarray) -> np.ndarray:
+    """Lower the relevance of videos that never mention a topic's distinctive words.
+
+    Meaning-based matching can rate "disk scheduling" close to a lecture on CPU
+    scheduling; if the word "disk" appears nowhere in that video, it is not the
+    lecture to recommend. Relevance drops in proportion to the share of the
+    topic's words that are missing (prefix match, so plurals count).
+    """
+    adjusted = relevance.copy()
+    vocabulary: dict[int, str] = {}
+    for row, query in enumerate(queries):
+        words = _key_words(query)
+        if not words:
+            continue
+        for column in np.flatnonzero(relevance[row] > 0):
+            column = int(column)
+            if column not in vocabulary:
+                start, end = index.spans[column]
+                vocabulary[column] = " ".join(index.texts[start:end]).lower()
+            text = vocabulary[column]
+            missing = sum(1 for w in words if w not in text)
+            if missing:
+                adjusted[row, column] *= 1.0 - KEY_TERM_WEIGHT * missing / len(words)
+    return adjusted
 
 
 def _rank_score(
@@ -552,6 +589,30 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         video_relevance(index, scores),
         pinned_columns,
     )
+    relevance = apply_key_terms(index, [texts[t.id] for t in topics], relevance)
+    def naming_tokens(text: str) -> list[set[str]]:
+        """Ways a title can name a topic: its full wording, or for "Head: item" just
+        the item. Bracketed abbreviations such as "(PCB)" are optional."""
+        plain = re.sub(r"\([^)]*\)", " ", text)
+        forms = [_title_tokens(plain)]
+        if ": " in plain:
+            forms.append(_title_tokens(plain.split(": ", 1)[1]))
+        return [f for f in forms if f]
+
+    tokens = {t.id: naming_tokens(texts[t.id]) for t in topics}
+
+    def dedicated_to(topic_id: int, title: str) -> bool:
+        """The title names this topic and no other (parent or child topics aside)."""
+        named = _title_tokens(title)
+        mine = next((form for form in tokens[topic_id] if form <= named), None)
+        if mine is None:
+            return False
+        return not any(
+            other <= named and not (other <= mine or mine <= other)
+            for tid, forms in tokens.items()
+            if tid != topic_id
+            for other in forms[:1]  # another topic's full wording
+        )
     threshold = project.relevance_threshold
     playlist_rank = {playlist.id: rank for rank, playlist in enumerate(project.playlists)}
     quality = [
@@ -625,6 +686,9 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
         for rank, (candidate, column) in enumerate(ordered[: MAX_ALTERNATES + 1]):
             video = index.videos[column]
             match = locate(index, column, scores[row], float(relevance[row, column]))
+            if dedicated_to(topic.id, video.title):
+                # The video is about this topic: study all of it.
+                match.start_s, match.end_s = 0.0, 0.0
             reasons = _reasons(match, video.has_transcript)
             if candidate.pinned:
                 reasons.insert(0, "You confirmed this video for the topic")

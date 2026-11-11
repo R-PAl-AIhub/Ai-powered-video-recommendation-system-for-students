@@ -15,7 +15,7 @@ Last checked: 2026-11-11. **Every buildable point is now Done.** What remains is
 
 | Requirement | Status | Evidence / note |
 |---|---|---|
-| Tell the student exactly what to study: "from this timestamp to this timestamp" | Done | `end_s` on recommendations and questions (migration `0002`), from the end of the on-topic run in `locate()`; shown as "study 2:43 to 6:10" (or "to the end") in the path, questions and search; the player stops at the end. Test: `test_recommendation_gives_a_study_range`. |
+| Tell the student exactly what to study: "from this timestamp to this timestamp" | Done | On the real 77-video playlist: 27 picks are whole videos dedicated to the topic (title names this topic and no other), 9 are stretches inside multi-topic lectures (e.g. Layered 2:43 to 12:00 and Monolithic 4:02 to 7:59 in one 19-minute lecture). Previously recorded: | `end_s` on recommendations and questions (migration `0002`), from the end of the on-topic run in `locate()`; shown as "study 2:43 to 6:10" (or "to the end") in the path, questions and search; the player stops at the end. Test: `test_recommendation_gives_a_study_range`. |
 
 ## Inputs and preprocessing
 
@@ -56,7 +56,7 @@ Last checked: 2026-11-11. **Every buildable point is now Done.** What remains is
 | Topics as a graph, path covering all nodes in order | Done | Viterbi over topics in order, one chosen video per topic |
 | Mine frequent topic transitions ("Topic Y follows Topic X") | Done | `playlist_topic_order()` labels each video with the topic it teaches best and mines "Y follows X" transitions along each playlist (a teacher's curriculum). Used automatically when topics come from notes or exams (no syllabus order), and on demand with "Order like my playlists" in the Topics tab. Test: `test_topics_can_be_ordered_the_way_the_playlists_teach_them`. |
 | Chain videos whose transcripts lead into each other | Done | Sequencing adds a bonus when the stretch picked in one video is close in meaning to the stretch picked in the next (`chain_bonus` in `services/sequencing.py`). Test: `test_chain_bonus_prefers_videos_that_continue_each_other`. |
-| Fuzzy ranking: relevance with duration, views, recency, ratings | Done | `services/fuzzy.py`: duration, views, likes (ratings), upload age, comments per thousand views. Tested. |
+| Fuzzy ranking: relevance with duration, views, recency, ratings | Partial | `services/fuzzy.py` uses duration, views, likes (ratings), upload age and comments per thousand views; tested. **With the default yt-dlp backend only duration and views are collected** (flat playlist listings carry nothing else, and fetching each video's page is the request burst YouTube blocks). With `YOUTUBE_API_KEY` set, the Data API returns all of them in batches of 50, so every factor is used. |
 | Fuzzy ranking: comment sentiment | Done (with the Data API) | Top 30 comments per video via `commentThreads` (one request), scored with a study-specific lexicon (`comment_sentiment()`), stored as `videos.comment_sentiment` (migration `0003`). Runs only when `YOUTUBE_API_KEY` is set, because scraping comments is the request pattern YouTube blocks. Tested with a fake client. |
 | Fuzzy ranking: watch time | Not possible | YouTube does not publish watch time for other people's videos; no API returns it. Likes per view is the nearest public signal. |
 | Pick the top video per topic, with alternatives | Done | Primary plus up to 3 alternates per topic |

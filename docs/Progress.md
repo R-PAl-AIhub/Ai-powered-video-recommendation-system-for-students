@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Study ranges tuned on the real playlist (whole video when the title names only this topic; strict start, tolerant end); key-term check fixes "disk scheduling" matching a CPU lecture; ASR also retries caption-less videos; demo data rebuilt; docs brought up to date. 49 tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | LDA topic map of the playlists (Focus tab), with matching syllabus topics and themes beyond the syllabus. Every buildable checklist item is done. 49 tests pass. |
 | 2026-11-11 | (this commit) | Optional speech recognition (faster-whisper, ffmpeg decode) for caption-less videos; verified on a real lecture. YouTube no longer blocks this machine. 48 tests pass. |
 | 2026-11-11 | (this commit) | Topic order mined from the playlists (auto when no syllabus; button in Topics); content-chaining bonus in sequencing. 47 tests pass; gate 25/25. |

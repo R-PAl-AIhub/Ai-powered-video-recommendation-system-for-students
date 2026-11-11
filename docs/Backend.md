@@ -52,6 +52,12 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | A multilingual model reads non-English captions |
 | `RERANKER_MODEL` | `Xenova/ms-marco-MiniLM-L-6-v2` | Empty string disables stage 2 |
 | `RUN_WORKER` | `true` | Run the job worker inside the API process |
+| `MIGRATE_ON_START` | `true` | Apply database migrations at startup |
+| `OCR_BACKEND` | `auto` | `google`, `rapidocr`, `tesseract` or `none`; `auto` prefers Google Vision when keyed |
+| `GOOGLE_VISION_API_KEY` | unset | Google Vision OCR, which reads handwriting |
+| `ASR_ENABLED` | `false` | Transcribe videos without captions (faster-whisper; needs ffmpeg) |
+| `ASR_MODEL` | `base` | Whisper size: `tiny`, `base`, `small`, `medium` |
+| `MIN_VIDEO_SECONDS` | `120` | Shorter clips are never recommended |
 
 ## Run it
 

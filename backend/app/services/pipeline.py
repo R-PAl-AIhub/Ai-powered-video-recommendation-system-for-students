@@ -278,6 +278,8 @@ def fetch_videos(
     wanted = ["pending", "error"]
     if get_embedder().multilingual:
         wanted.append("foreign")  # a multilingual model can use these after all
+    if get_transcriber() is not None:
+        wanted.append("none")  # no captions, but speech recognition can listen now
     pending = list(
         db.scalars(
             select(Video).where(
