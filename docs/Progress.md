@@ -14,7 +14,8 @@ and the README are not started.
 
 ## Resume here
 
-**Next action: look at the frontend in a browser and fix what is wrong.**
+**Next action: Alembic migrations** (to-do item 2 below). The browser check is done;
+the steps below are kept as the recipe for running the demo.
 
 1. The old demo database fails at startup because it predates a column
    (`jobs.run_after`). Make a fresh one instead of copying `live-os.db` as is:
@@ -36,12 +37,14 @@ and the README are not started.
 
    The backend serves `frontend/dist` at `http://127.0.0.1:8000/` (run
    `npm run build` in `frontend/` first).
-2. Check, in both themes and at phone width. **Done so far** (desktop, 1440 wide):
-   landing hero (light), sign in, course list, Path tab, Questions tab, the player
-   (opens the right embed at the right second), feedback and undo (dark). **Still to
-   check:** Sources, Focus, Search and Topics tabs (including drag-reorder), phone
-   width (about 390 wide), light theme inside the app. Demo account:
-   `demo@example.com` / `demo-password-1` in `data/demo.db`.
+2. Browser check, **done 2026-11-11**: landing page, sign in, course list, all six
+   workspace tabs, the player, feedback and undo, search (found and not found), at
+   1440 wide and at 390 wide (phone emulation), in both themes. Not covered: topic
+   drag-reorder by hand (the API behind it is tested), file upload through the UI
+   (the API is tested), and visual review of the light theme inside the app by
+   screenshot (screenshots time out in this environment; layout was checked with
+   DOM measurements). Demo account: `demo@example.com` / `demo-password-1` in
+   `data/demo.db`.
 3. Check the browser console for Content-Security-Policy violations; the policy is
    in `backend/app/observability.py`.
 4. Fix what is found, rebuild, commit.
@@ -63,14 +66,28 @@ and the README are not started.
 
 ## To do, in order
 
-1. **Browser check of the frontend** (see "Resume here").
+1. ~~Browser check of the frontend~~ (done 2026-11-11).
 2. **Alembic migrations.** Needed for PostgreSQL and for upgrading existing SQLite
-   databases (the demo database failure above is exactly this problem).
-3. **Deployment**: `Dockerfile` (build the frontend, install the backend, bake the
-   model files in, install `libgl1` for OCR), `docker-compose.yml` (API, worker,
-   PostgreSQL), `render.yaml`, `.env.example`.
-4. **CI/CD** in `.github/workflows/`: lint, tests on SQLite and PostgreSQL, the
-   evaluation gate, frontend build, Docker build and publish to GHCR.
+   databases (the demo database failure above is exactly this problem). Plan:
+   `alembic upgrade head` becomes the only schema path at startup (remove
+   `create_all` from `main.py` lifespan and `worker.py`; tests may keep it); an
+   initial migration generated from the models; databases made by `create_all`
+   (tables but no `alembic_version`) are detected and stamped; `render_as_batch=True`
+   for SQLite; one test that runs `upgrade head` on an empty database and compares
+   it with the models.
+3. **Deployment**: `Dockerfile` (build the frontend, install the backend, bake both
+   models in with `MODEL_DIR` set at build time, install `libgl1` and
+   `libglib2.0-0` for OpenCV/RapidOCR, set `FRONTEND_DIST` explicitly because the
+   path differs in the image), `docker-compose.yml` (API with `RUN_WORKER=false`, a
+   separate worker service, PostgreSQL), `render.yaml`, `.env.example`. Pick one
+   Python version (check onnxruntime and rapidocr wheels exist for it). Note: with
+   `RUN_WORKER=true` every API process starts a worker, and on SQLite
+   `recover_interrupted(everything=True)` would re-queue another process's job, so
+   multi-process deployments must use a separate worker.
+4. **CI/CD** in `.github/workflows/`: lint, tests on SQLite and on a PostgreSQL
+   service (never run before; expect real bugs), the evaluation gate with the model
+   directory cached, frontend build, Docker build and publish to GHCR
+   (`permissions: packages: write`).
 5. **Unit tests** for `documents.py`, `ocr.py`, `jobs.py`, `youtube.py`.
 6. **Real-world checks still owed**: more real playlists in other subjects, and
    non-English playlists, once YouTube stops rate-limiting this machine. Then decide
@@ -95,7 +112,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Browser check of the signed-in app. Added an undo bar for feedback: "Wrong topic", "Irrelevant" and "I know this" change the row completely, so there was no way back. Verified in the browser: wrong topic swaps in the next video, undo restores it. Removed a redundant iframe attribute. Found that a video with only a mis-labelled Turkish caption track produced garbage snippets in the cached data; the current pipeline already marks such captions as unreadable (`foreign`), confirmed by re-running on the demo data. |
+| 2026-11-11 | (this commit) | Browser check finished: Focus, Search, Topics, Sources tabs; phone width 390 with emulation; light theme. Fixed the landing nav overflowing on phones (a "hidden" class lost to the button's own inline-flex). |
+| 2026-11-11 | `1c57648` | Browser check of the signed-in app. Added an undo bar for feedback: "Wrong topic", "Irrelevant" and "I know this" change the row completely, so there was no way back. Verified in the browser: wrong topic swaps in the next video, undo restores it. Removed a redundant iframe attribute. Found that a video with only a mis-labelled Turkish caption track produced garbage snippets in the cached data; the current pipeline already marks such captions as unreadable (`foreign`), confirmed by re-running on the demo data. |
 | 2026-11-11 | `d60991b` | Browser check started (Chrome DevTools tools; the Claude-in-Chrome extension was disconnected). Landing page renders, the 3D scene works, no console errors besides the expected 401 from `/api/auth/me` when signed out. Fixed: in the light theme the 3D slabs were pale grey and washed out, so they now use a dark "screen" colour (`--screen`) in both themes; the hero headline now fits on two lines. |
 | 2026-11-11 | `6b5f065` | Project notes vault in `docs/`. Demo database made from the real cache: 8 past questions, 6 answered, and the 2 unanswered are the ones the playlist truly lacks. Server start failed on the old database schema; recorded above. |
 | 2026-11-10 | `18eb0f3` | Frontend: 3D landing page and the full app. Builds; not yet seen in a browser. |

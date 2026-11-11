@@ -54,18 +54,23 @@ function Nav() {
           <Logo />
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
-          <a href="#how" className={buttonClass("quiet", "sm", "hidden sm:inline-flex")}>
-            How it works
-          </a>
+          {/* Wrapped, because the button's own inline-flex would override "hidden". */}
+          <span className="hidden sm:contents">
+            <a href="#how" className={buttonClass("quiet", "sm")}>
+              How it works
+            </a>
+          </span>
           <ThemeToggle />
           {user ? null : (
             <Link to="/signin" className={buttonClass("quiet", "sm")}>
               Sign in
             </Link>
           )}
-          <Link to={start.to} className={buttonClass("primary", "sm", "hidden sm:inline-flex")}>
-            {start.label}
-          </Link>
+          <span className="hidden sm:contents">
+            <Link to={start.to} className={buttonClass("primary", "sm")}>
+              {start.label}
+            </Link>
+          </span>
         </div>
       </nav>
     </header>
