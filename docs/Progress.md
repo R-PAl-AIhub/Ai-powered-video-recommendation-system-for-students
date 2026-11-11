@@ -14,8 +14,37 @@ and the README are not started.
 
 ## Resume here
 
-**Next action: Deployment** (to-do item 3). The site-wide 3D work (item 2a) is done;
-a possible follow-up is depth on the workspace's Path rows. Migrations are done. The steps below are
+**Next action: close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
+the idea document is the sole source of truth; every point must be built). Then
+Deployment (to-do item 3). Work in this order, updating the checklist row, this
+note and committing after each:
+
+1. **Study ranges (owner's explicit request):** each recommendation gets an end
+   second as well as a start: add `end_s` to `Recommendation` (and `Question`) via
+   a new Alembic revision; compute it in `locate()` in `services/matching.py` (end
+   of the run of on-topic chunks); show "Study 12:34 to 18:02" in `PathRow`,
+   `QuestionCard` and search results; pass `end` to the YouTube embed in
+   `embedUrl()` so the player stops there.
+2. **Short summary per video** in `PathRow` (the snippet already in the API).
+3. **Relabel "I know this" to "Already in my playlist"** (the document's wording).
+4. **Fuzzy ranking:** add recency (`published_at`) and comment volume
+   (`comment_count`) to `services/fuzzy.py`; comment sentiment from Data API
+   `commentThreads` when `YOUTUBE_API_KEY` is set. Watch time is not available
+   from YouTube (record as not possible).
+5. **Notes and exam topics:** add topics found only in notes or exams, placed after
+   the most similar syllabus topic, `source="notes"` / `"exam"`.
+6. **OCR end to end on real files:** upload an image-only PDF, a PNG photo of
+   notes and a DOCX to the demo project; confirm `ocr_pages > 0` and topics react.
+   Add spell-check after OCR (correct out-of-vocabulary words against the course
+   vocabulary). Add a Google Vision backend (`OCR_BACKEND=google`, API key) for
+   handwriting.
+7. **Topic transitions mined from playlist order**, and a sequencing bonus when one
+   pick's end leads into the next pick's start.
+8. **Optional ASR** (faster-whisper) for videos without captions, paced, off by
+   default.
+9. **LDA topic map** of the playlists (sklearn), shown as a coverage view.
+
+The demo server: see the steps below; `data/demo.db` has the real playlist. Migrations are done. The steps below are
 kept as the recipe for running the demo; step 1's manual `ALTER TABLE` is no longer
 needed, because startup now upgrades old databases automatically.
 
