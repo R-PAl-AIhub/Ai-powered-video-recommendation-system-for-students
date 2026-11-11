@@ -15,8 +15,9 @@ from sqlalchemy import text
 
 from . import __version__
 from .config import get_settings
-from .db import SessionLocal, init_db
+from .db import SessionLocal
 from .deps import verify_origin
+from .migrate import upgrade_database
 from .observability import RequestContextMiddleware, configure_logging
 from .routers import auth, learning, projects
 from .services import jobs
@@ -38,8 +39,8 @@ def _frontend_dir() -> Path | None:
 async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.environment == "production")
-    if settings.is_sqlite:
-        init_db()  # PostgreSQL schemas are managed by Alembic migrations
+    if settings.migrate_on_start:
+        upgrade_database()  # the only place the schema changes; see app/migrate.py
     worker = None
     if settings.run_worker:
         with SessionLocal() as db:

@@ -70,9 +70,14 @@ With `frontend/dist` built, the same server serves the app at `/`.
   got this machine blocked for hours ("Sign in to confirm you're not a bot"). Hence
   the pacing, the one-request-per-video design, stop-after-three-refusals, and
   scheduled retries. Do not remove them.
-- **SQLite schemas are created, not migrated.** `create_all` adds missing tables but
-  not missing columns, so a database from an older version fails at startup. Delete
-  it or add Alembic migrations (on the to-do list in [[Progress]]).
+- **Schema changes go through Alembic.** `app/migrate.py` runs `upgrade head` at
+  startup (or `python -m app.migrate` in a deploy step with `MIGRATE_ON_START=false`).
+  To change the schema: edit `models.py`, run
+  `.venv/Scripts/python -m alembic revision --autogenerate -m "what changed"` in
+  `backend/`, review the new file in `alembic/versions/`, commit it. Databases from
+  before migrations existed are adopted automatically. Tests still build tables with
+  `create_all` for speed; `tests/test_migrations.py` checks the migrations match the
+  models.
 - New FastAPI nests included routers lazily, so `app.routes` does not list the API
   routes; use `app.openapi()["paths"]`.
 

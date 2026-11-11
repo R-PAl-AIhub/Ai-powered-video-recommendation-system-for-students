@@ -14,8 +14,10 @@ and the README are not started.
 
 ## Resume here
 
-**Next action: Alembic migrations** (to-do item 2 below). The browser check is done;
-the steps below are kept as the recipe for running the demo.
+**Next action: make the whole site feel 3D** (owner's request, 2026-11-11; see
+to-do item 2a), then Deployment (item 3). Migrations are done. The steps below are
+kept as the recipe for running the demo; step 1's manual `ALTER TABLE` is no longer
+needed, because startup now upgrades old databases automatically.
 
 1. The old demo database fails at startup because it predates a column
    (`jobs.run_after`). Make a fresh one instead of copying `live-os.db` as is:
@@ -67,14 +69,18 @@ the steps below are kept as the recipe for running the demo.
 ## To do, in order
 
 1. ~~Browser check of the frontend~~ (done 2026-11-11).
-2. **Alembic migrations.** Needed for PostgreSQL and for upgrading existing SQLite
-   databases (the demo database failure above is exactly this problem). Plan:
-   `alembic upgrade head` becomes the only schema path at startup (remove
-   `create_all` from `main.py` lifespan and `worker.py`; tests may keep it); an
-   initial migration generated from the models; databases made by `create_all`
-   (tables but no `alembic_version`) are detected and stamped; `render_as_batch=True`
-   for SQLite; one test that runs `upgrade head` on an empty database and compares
-   it with the models.
+2. ~~Alembic migrations~~ (done 2026-11-11). `app/migrate.py` is the only schema
+   path, run at API and worker startup (`MIGRATE_ON_START`, default true) or by
+   `python -m app.migrate`. Initial revision `0001` covers all 12 tables. Databases
+   made before migrations are adopted: missing tables created, missing columns added
+   as nullable, then stamped. 4 tests in `tests/test_migrations.py`. **Adding a
+   column from now on:** change the model, then
+   `alembic revision --autogenerate -m "..."` in `backend/`, review the file, commit.
+2a. **3D look across the whole site** (owner's request). The hero already has a
+   WebGL scene and the path preview tilts on scroll; the rest is flat. Plan:
+   pointer-driven 3D tilt with depth layers on cards (Motion values, off for touch
+   and reduced motion), the 3D scene beside the sign-in form, a 3D coverflow for the
+   landing page's questions row, and depth on the workspace header.
 3. **Deployment**: `Dockerfile` (build the frontend, install the backend, bake both
    models in with `MODEL_DIR` set at build time, install `libgl1` and
    `libglib2.0-0` for OpenCV/RapidOCR, set `FRONTEND_DIST` explicitly because the
@@ -96,7 +102,6 @@ the steps below are kept as the recipe for running the demo.
 
 ## Known problems
 
-- An existing SQLite database from an older version fails at startup (no migrations).
 - YouTube was blocking this machine on 2026-11-10 after one burst of requests.
   Pacing was added afterwards; whether the block has lifted is untested.
 - Multi-language support is implemented but unverified on real videos.
@@ -112,7 +117,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Browser check finished: Focus, Search, Topics, Sources tabs; phone width 390 with emulation; light theme. Fixed the landing nav overflowing on phones (a "hidden" class lost to the button's own inline-flex). |
+| 2026-11-11 | (this commit) | Alembic migrations: initial revision, startup upgrade, adoption of pre-migration databases, 4 tests. 38 tests pass, lint clean. |
+| 2026-11-11 | `cb5ad50` | Browser check finished: Focus, Search, Topics, Sources tabs; phone width 390 with emulation; light theme. Fixed the landing nav overflowing on phones (a "hidden" class lost to the button's own inline-flex). |
 | 2026-11-11 | `1c57648` | Browser check of the signed-in app. Added an undo bar for feedback: "Wrong topic", "Irrelevant" and "I know this" change the row completely, so there was no way back. Verified in the browser: wrong topic swaps in the next video, undo restores it. Removed a redundant iframe attribute. Found that a video with only a mis-labelled Turkish caption track produced garbage snippets in the cached data; the current pipeline already marks such captions as unreadable (`foreign`), confirmed by re-running on the demo data. |
 | 2026-11-11 | `d60991b` | Browser check started (Chrome DevTools tools; the Claude-in-Chrome extension was disconnected). Landing page renders, the 3D scene works, no console errors besides the expected 401 from `/api/auth/me` when signed out. Fixed: in the light theme the 3D slabs were pale grey and washed out, so they now use a dark "screen" colour (`--screen`) in both themes; the hero headline now fits on two lines. |
 | 2026-11-11 | `6b5f065` | Project notes vault in `docs/`. Demo database made from the real cache: 8 past questions, 6 answered, and the 2 unanswered are the ones the playlist truly lacks. Server start failed on the old database schema; recorded above. |

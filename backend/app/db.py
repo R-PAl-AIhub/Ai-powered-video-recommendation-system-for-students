@@ -64,7 +64,8 @@ def session_scope() -> Iterator[Session]:
 
 
 def init_db() -> None:
-    """Create tables that do not exist yet (used for SQLite/dev and tests)."""
+    """Create tables directly from the models. For tests and throwaway databases
+    only; real databases are managed by ``app.migrate.upgrade_database``."""
     from . import models  # noqa: F401  (register mappers)
 
     Base.metadata.create_all(bind=engine)

@@ -11,7 +11,8 @@ import signal
 import threading
 
 from .config import get_settings
-from .db import SessionLocal, init_db
+from .db import SessionLocal
+from .migrate import upgrade_database
 from .observability import configure_logging
 from .services import jobs
 
@@ -21,8 +22,8 @@ log = logging.getLogger(__name__)
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.environment == "production")
-    if settings.is_sqlite:
-        init_db()
+    if settings.migrate_on_start:
+        upgrade_database()
     with SessionLocal() as db:
         jobs.recover_interrupted(db)
 

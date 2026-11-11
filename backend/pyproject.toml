@@ -17,6 +17,11 @@ ignore = [
     "SIM108", # ternaries are not always clearer
 ]
 
+[tool.ruff.lint.isort]
+# The local alembic/ folder holds migrations; "alembic" imports mean the package.
+known-third-party = ["alembic"]
+known-first-party = ["app", "evaluation"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
 

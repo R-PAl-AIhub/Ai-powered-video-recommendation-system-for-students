@@ -51,8 +51,14 @@ class Settings(BaseSettings):
     max_documents_per_project: int = 40
     max_topics_per_project: int = 250
 
+    # Apply database migrations at startup. Turn off when a deploy step runs
+    # `python -m app.migrate` once before the processes start.
+    migrate_on_start: bool = True
+
     # --- background worker ---
-    run_worker: bool = True  # run the job worker inside the API process
+    # Run the job worker inside the API process. Fine for one process; with several
+    # API processes set this to false and run `python -m app.worker` separately.
+    run_worker: bool = True
     job_stale_minutes: int = 15
 
     @model_validator(mode="after")
