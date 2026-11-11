@@ -581,3 +581,38 @@ def test_chain_bonus_prefers_videos_that_continue_each_other():
     unrelated = Candidate(video_id=3, score=0.8, vector=far)
     assert chain_bonus(first, continues) > 0 == chain_bonus(first, unrelated)
     assert choose_path([[first], [unrelated, continues]]) == [0, 1]
+
+
+def test_videos_without_captions_are_transcribed_when_asr_is_on(client):
+    from app.services.asr import set_transcriber
+    from app.services.youtube import Transcript, TranscriptSegment
+
+    lines = [
+        "Today we look at file allocation methods.",
+        "Contiguous allocation stores a file in consecutive blocks.",
+        "Linked allocation chains the blocks with pointers.",
+        "Indexed allocation keeps all block pointers in an index block.",
+    ]
+
+    class FakeWhisper:
+        name = "fake"
+
+        def __init__(self):
+            self.heard = []
+
+        def transcribe(self, video_id, duration_s=0):
+            self.heard.append(video_id)
+            segments = [TranscriptSegment(i * 30.0, 30.0, line) for i, line in enumerate(lines)]
+            return Transcript(language="hi→en", is_generated=True, segments=segments)
+
+    whisper = FakeWhisper()
+    set_transcriber(whisper)
+    try:
+        register(client)
+        project_id = make_course(client)
+    finally:
+        set_transcriber(None)
+    assert whisper.heard == ["rvFiles0005"]  # only the video without captions
+    pick = topic_by_name(path_of(client, project_id), "File allocation methods")["primary"]
+    assert pick["video"]["youtube_id"] == "rvFiles0005"
+    assert pick["video"]["transcript_status"] == "ok"

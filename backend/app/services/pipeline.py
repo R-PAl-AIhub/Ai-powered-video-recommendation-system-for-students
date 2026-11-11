@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import Document, Playlist, Project, Topic, Video, VideoChunk, utcnow
 from . import documents as documents_service
+from .asr import get_transcriber
 from .embeddings import get_embedder, to_blob
 from .fuzzy import comment_sentiment
 from .matching import invalidate_index
@@ -154,6 +155,7 @@ def _fetch_one(
     youtube_id: str,
     has_description: bool,
     stop: threading.Event,
+    duration_s: int = 0,
 ) -> _Fetched:
     """Fetch one video's transcript, and its details only if they are needed.
 
@@ -168,6 +170,13 @@ def _fetch_one(
     except Exception as exc:
         log.info("transcript failed for %s: %s", youtube_id, type(exc).__name__)
         return _Fetched(video_id, None, None, "error", blocked=_is_block(exc))
+    if transcript is None and (transcriber := get_transcriber()) is not None:
+        try:  # no captions: listen to the video instead
+            transcript = transcriber.transcribe(youtube_id, duration_s)
+        except Exception as exc:
+            if _is_block(exc):
+                return _Fetched(video_id, None, None, "error", blocked=True)
+            log.info("speech recognition failed for %s: %s", youtube_id, exc)
     meta = None
     if transcript is None and not has_description:
         try:
@@ -285,7 +294,13 @@ def fetch_videos(
     with ThreadPoolExecutor(max_workers=get_settings().transcript_workers) as pool:
         futures = [
             pool.submit(
-                _fetch_one, client, video.id, video.youtube_id, bool(video.description), stop
+                _fetch_one,
+                client,
+                video.id,
+                video.youtube_id,
+                bool(video.description),
+                stop,
+                video.duration_s,
             )
             for video in pending
         ]

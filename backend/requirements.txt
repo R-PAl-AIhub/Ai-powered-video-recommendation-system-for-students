@@ -33,5 +33,9 @@ numpy>=2.5,<3
 scikit-learn>=1.9,<2
 fastembed>=0.9.1,<1
 
+# Speech recognition for videos without captions (optional at runtime: ASR_ENABLED).
+# Needs ffmpeg on the PATH.
+faster-whisper>=1.2.1,<2
+
 # Operations
 prometheus-client>=0.26

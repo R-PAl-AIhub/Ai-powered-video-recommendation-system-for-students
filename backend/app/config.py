@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # else RapidOCR, else Tesseract.
     ocr_backend: Literal["auto", "google", "rapidocr", "tesseract", "none"] = "auto"
     google_vision_api_key: str | None = None
+
+    # Speech recognition for videos without captions (downloads audio; slow on CPU).
+    asr_enabled: bool = False
+    asr_model: str = "base"  # faster-whisper size: tiny, base, small, medium
+    asr_max_minutes: int = 90  # longer videos are skipped
     max_upload_mb: int = 25
     max_documents_per_project: int = 40
     max_topics_per_project: int = 250

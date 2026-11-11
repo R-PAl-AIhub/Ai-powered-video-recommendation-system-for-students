@@ -86,7 +86,7 @@ Last checked: 2026-11-11.
 | Each video shows thumbnail, title and a short summary | Done | Thumbnail, title, a transcript excerpt from the matched stretch, and the reason it was picked. |
 | Warning icon on missing topics | Done | |
 | Drag-and-drop reordering; checkboxes or buttons for feedback | Done | Topics tab; feedback buttons |
-| Videos without captions transcribed by speech recognition (ASR) | Not built | Matched on title and description instead. Option: faster-whisper; needs audio downloads, the request pattern YouTube blocks most, so it must be paced. |
+| Videos without captions transcribed by speech recognition (ASR) | Done (opt-in) | `services/asr.py`: faster-whisper on CPU, audio via yt-dlp (paced) and decoded with ffmpeg; other languages translated to English. Off by default (`ASR_ENABLED=true` to use; `ASR_MODEL` sets size). Verified on a real 10-minute lecture: 95 timed segments in 67 s with the `tiny` model. Test: `test_videos_without_captions_are_transcribed_when_asr_is_on`. |
 | Any course, any department | Partial | Generic by design; verified on one real course (operating systems). |
 | Links to YouTube only; nothing hosted | Done | Embeds and links only |
 
