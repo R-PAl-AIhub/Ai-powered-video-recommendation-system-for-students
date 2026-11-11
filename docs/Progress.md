@@ -18,6 +18,33 @@ the GitHub Pages demo and the README are next (see "Resume here").
 is feasible.** Vercel cannot host the backend (see [[Decisions]]); the plan is a static
 demo on GitHub Pages, a Docker image on GHCR and a `render.yaml` for the full stack.
 
+**Owner's decision (2026-11-11, latest, overrides the steps below where they differ):**
+keep the whole app (Docker, CI, render.yaml stay in the repo), but put ONLY the demo
+online (GitHub Pages, read-only), and give the owner the FULL app on his own PC.
+No CI/CD is needed for publishing: build and push the demo from this machine.
+Done already: `build:pages` script in `frontend/package.json`; `frontend/dist-pages/`
+in `.gitignore`. To do, in order:
+
+A. `frontend/deploy-pages.sh` (run from Git Bash): `cd frontend`,
+   `MSYS_NO_PATHCONV=1 VITE_DEMO=1 PAGES_BASE=/Ai-powered-video-recommendation-system-for-students/ npm run build:pages`,
+   copy `dist-pages/index.html` to `dist-pages/404.html`, create empty
+   `dist-pages/.nojekyll`, then in `dist-pages`: `git init -b gh-pages`, add, commit,
+   `git push --force <origin url> gh-pages`. Run it, then open
+   https://r-pal-aihub.github.io/Ai-powered-video-recommendation-system-for-students/
+   If it stays 404 after a few minutes: GitHub Settings > Pages > Deploy from branch
+   `gh-pages`, folder `/` (ask the owner, or use his logged-in browser).
+B. `start-waypoint.bat` in the project root (owner's full local app, double-click):
+   `cd /d "%~dp0"`; if `frontend\dist\index.html` is missing run `npm run build` in
+   `frontend`; `start "" http://127.0.0.1:8000`; then in `backend`:
+   `.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`.
+   Uses `backend/data/app.db` (sign up once). Do not leave the server running after
+   testing: this PC runs short of memory.
+C. README.md in the root: live demo link (read-only), how to run the full app on
+   the PC (`start-waypoint.bat`, first-time setup: `python -m venv .venv`,
+   `pip install -r requirements.txt`, `npm install`), Docker/Render as optional.
+D. Update this note and commit and push after each step. Leave `ci.yml` as is (its
+   first run was never checked; not a priority for the owner).
+
 **Next action, in order:**
 
 1. ~~Study material backend~~ (done 2026-11-11, `services/readings.py`, migration 0005).

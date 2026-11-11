@@ -24,6 +24,7 @@ backend/data/
 # Node / frontend
 node_modules/
 frontend/dist/
+frontend/dist-pages/
 *.tsbuildinfo
 
 # Editors / OS
