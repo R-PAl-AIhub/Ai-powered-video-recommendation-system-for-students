@@ -150,12 +150,52 @@ def _is_block(exc: Exception) -> bool:
     }
 
 
+class _BlockWatch:
+    """Counts refusals in a row across the fetching threads, and tells them to
+    stop asking once YouTube is clearly blocking this address.
+
+    The threads update it themselves as each request ends. (Counting in the
+    thread that collects results is too late: fast workers can have requested
+    every video before the first results are looked at.)
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._in_a_row = 0
+        self._stop = threading.Event()
+
+    def stopped(self) -> bool:
+        return self._stop.is_set()
+
+    def record(self, blocked: bool) -> None:
+        with self._lock:
+            self._in_a_row = self._in_a_row + 1 if blocked else 0
+            if self._in_a_row >= BLOCK_ABORT_AFTER:
+                self._stop.set()
+
+
 def _fetch_one(
     client: YouTubeClient,
     video_id: int,
     youtube_id: str,
     has_description: bool,
-    stop: threading.Event,
+    watch: _BlockWatch,
+    duration_s: int = 0,
+) -> _Fetched:
+    """Fetch one video (see ``_fetch``) and report to ``watch`` whether YouTube
+    refused it. Does nothing once the watch says to stop."""
+    if watch.stopped():  # YouTube started refusing requests; leave this one for a retry
+        return _Fetched(video_id, None, None, "error", blocked=True)
+    fetched = _fetch(client, video_id, youtube_id, has_description, duration_s)
+    watch.record(fetched.blocked)
+    return fetched
+
+
+def _fetch(
+    client: YouTubeClient,
+    video_id: int,
+    youtube_id: str,
+    has_description: bool,
     duration_s: int = 0,
 ) -> _Fetched:
     """Fetch one video's transcript, and its details only if they are needed.
@@ -164,8 +204,6 @@ def _fetch_one(
     YouTube's bot detection watches most closely) is made only for videos without
     captions, where the description is the only text there is to match on.
     """
-    if stop.is_set():  # YouTube started refusing requests; leave this one for a retry
-        return _Fetched(video_id, None, None, "error", blocked=True)
     try:
         transcript = client.fetch_transcript(youtube_id)
     except Exception as exc:
@@ -292,8 +330,7 @@ def fetch_videos(
         return 0
     by_id = {video.id: video for video in pending}
     done = 0
-    consecutive_blocks = 0
-    stop = threading.Event()
+    watch = _BlockWatch()
     with ThreadPoolExecutor(max_workers=get_settings().transcript_workers) as pool:
         futures = [
             pool.submit(
@@ -302,7 +339,7 @@ def fetch_videos(
                 video.id,
                 video.youtube_id,
                 bool(video.description),
-                stop,
+                watch,
                 video.duration_s,
             )
             for video in pending
@@ -311,9 +348,6 @@ def fetch_videos(
             fetched = future.result()
             apply_fetched(db, by_id[fetched.video_id], fetched)
             done += 1
-            consecutive_blocks = consecutive_blocks + 1 if fetched.blocked else 0
-            if consecutive_blocks >= BLOCK_ABORT_AFTER:
-                stop.set()  # remaining videos return immediately, untouched by YouTube
             if done % 5 == 0 or done == len(pending):
                 db.commit()
             report("transcripts", done / len(pending), f"Fetched {done} of {len(pending)} videos")
@@ -653,7 +687,7 @@ def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video
             raise
         except YouTubeError as exc:
             raise YouTubeError("That video could not be loaded from YouTube.") from exc
-        fetched = _fetch_one(client, video.id, youtube_id, True, threading.Event())
+        fetched = _fetch_one(client, video.id, youtube_id, True, _BlockWatch())
         fetched.meta = meta
         apply_fetched(db, video, fetched)
         db.flush()

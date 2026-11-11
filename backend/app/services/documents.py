@@ -64,7 +64,11 @@ def sniff_kind(data: bytes, filename: str) -> str:
         or (data.startswith(b"RIFF") and data[8:12] == b"WEBP")
     ):
         return "image"
-    if ext in TEXT_EXTENSIONS and b"\x00" not in data[:4096]:
+    if ext in TEXT_EXTENSIONS and (
+        # UTF-16 text (Windows Notepad's "Unicode") is full of zero bytes; its
+        # byte-order mark tells it apart from a binary file.
+        data[:2] in (b"\xff\xfe", b"\xfe\xff") or b"\x00" not in data[:4096]
+    ):
         return "text"
     raise DocumentError(
         "Unsupported file. Upload a PDF, a Word document (.docx), a text file, "

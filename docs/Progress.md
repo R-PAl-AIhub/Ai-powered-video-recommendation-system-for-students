@@ -37,10 +37,25 @@ has to double-click and sign up. Reflect every change in these notes, and keep
 
 Do in order. Mark each item done here, with what was verified, before moving on.
 
-1. [ ] Check the first CI run; fix what fails (lint, SQLite tests, PostgreSQL tests,
-   evaluation gate, frontend build, Docker image to GHCR). This is the only way
-   PostgreSQL and the Docker image get tested: there is no Docker on this PC.
-2. [ ] Unit tests for `documents.py`, `ocr.py`, `jobs.py`, `youtube.py`.
+1. [~] CI. Checked 2026-11-11: frontend build and evaluation gate pass; on SQLite
+   and on PostgreSQL every test passed except one,
+   `test_blocked_youtube_degrades_gracefully_and_schedules_a_retry`. Cause: a real
+   race. The "stop asking YouTube after 3 refusals in a row" decision was taken by
+   the thread that collects results, so fast worker threads could request every
+   video first. Fixed: the worker threads now count refusals themselves
+   (`_BlockWatch` in `services/pipeline.py`). **Still to confirm: the CI run of the
+   commit with this fix is green, and the Docker image job (it only runs when the
+   tests pass) builds and publishes.** Read results without a login:
+   `curl -s .../actions/runs?per_page=3`, `.../actions/runs/<id>/jobs`, and
+   `.../check-runs/<job id>/annotations` (failing tests appear there as
+   annotations, thanks to `pytest-github-actions-annotate-failures`; raw logs need
+   a login).
+2. [x] Unit tests (2026-11-11): `tests/test_jobs.py`, `test_youtube.py`,
+   `test_ocr.py`, `test_document_formats.py`. 181 tests pass, lint clean, gate
+   25/25, coverage 82% -> 90%. They found one bug, now fixed: a text file saved by
+   Windows Notepad as "Unicode" (UTF-16) was refused as unsupported
+   (`sniff_kind` in `services/documents.py`). `backend/.coverage` is no longer
+   tracked in git.
 3. [ ] Run the full app as `start-waypoint.bat` does (fresh `app.db`): sign up,
    make a course, add a playlist and a syllabus, analyse, open the path. Include
    file upload through the screen and topic reorder by drag. Stop the server after.
@@ -261,7 +276,7 @@ needed, because startup now upgrades old databases automatically.
 - Multi-language support is implemented but unverified on real videos.
 - The YouTube Data API backend is written but has never run against the real API
   (no key was available).
-- PostgreSQL has never been run.
+- PostgreSQL has run only in CI (all tests pass there); never on this PC.
 - On the real playlist, "Concept of Operating Systems" picks video 2 rather than
   video 1. Left as is.
 
@@ -271,6 +286,9 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Finishing pass 1 and 2: fixed the race in stopping after a YouTube block (the one CI failure, same on SQLite and PostgreSQL); unit tests for jobs, youtube, ocr, documents (181 tests, 90% coverage); UTF-16 text files now accepted. |
+| 2026-11-11 | `6c692ff` | CI reports failing tests as annotations (readable without a login). |
+| 2026-11-11 | `a1cf310` | `nextAi.txt` handoff prompt; finishing-pass plan in this note. |
 | 2026-11-11 | (this commit) | Demo published to GitHub Pages with `frontend/deploy-pages.sh` (live, HTTP 200); `start-waypoint.bat` for the full app on the owner's PC (not yet run); `README.md` replaces `STATUS.md`. |
 | 2026-11-11 | (this commit) | Static demo mode for GitHub Pages (`VITE_DEMO=1`, real course snapshot with readings, export script); checked in the browser locally. Not yet published; see "Resume here" step 5. |
 | 2026-11-11 | `7c94784` | CI workflow (lint, SQLite and PostgreSQL tests, evaluation gate, frontend build, image to GHCR); first run not yet checked. |

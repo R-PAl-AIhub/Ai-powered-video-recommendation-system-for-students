@@ -59,6 +59,11 @@ USEFUL FACTS
 
 CURRENT STATE (updated at every checkpoint)
 - Date: 2026-11-11
-- Done: app built; demo online; start-waypoint.bat, README.md written and pushed.
-- In progress: the "Finishing pass" in docs/Progress.md, starting at item 1.
-- Next step: see the first item not marked done in "Finishing pass".
+- Done: app built; demo online; start-waypoint.bat and README.md written.
+  Finishing pass item 2 (unit tests: 181 tests pass, 90% coverage) is done.
+  Finishing pass item 1 (CI): the one failing test was a real race, now fixed.
+- In progress: confirm that the CI run of the latest commit is green and that the
+  Docker image job ran (item 1). Then item 3: run the full app like
+  start-waypoint.bat does, on a fresh database, and test it in the browser.
+- Next step: see the first item not marked [x] in "Finishing pass" in
+  docs/Progress.md.
