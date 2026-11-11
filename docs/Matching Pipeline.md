@@ -40,6 +40,14 @@ change it only with the tools in [[Evaluation and Testing]].
    **Extra topics:** headings found only in notes, and phrases asked in two or more
    past questions, become topics after the closest syllabus topic. **Quality** also
    uses upload age, comment volume and (with the Data API) comment sentiment.
+9a. **Several stretches** (`plan_segments`). When one stretch does not cover the
+   topic: a "Part 1 / Part 2" series around the chosen video; a second stretch of the
+   same video that is as strong (90% of the best chunk at its peak, 80% on average);
+   then greedy set cover over the topic's parts ("X and Y" halves, past questions and
+   notes passages that match it at 0.6 or more), adding the fewest stretches from any
+   playlist; same playlist wins ties; near-duplicate stretches (cosine 0.95) are
+   skipped. At most 4 segments; uncovered parts are listed. Short captioned clips
+   stay in the index only to continue a series.
 10. **Signals from documents.** Past questions are counted per topic (`exam_hits`);
     notes passages mark topics as `in_notes`. Importance is 75% exam frequency, 25%
     notes. Each past question is also searched like a topic to find its answering

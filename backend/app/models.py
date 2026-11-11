@@ -235,6 +235,10 @@ class Recommendation(Base):
     coverage_s: Mapped[float] = mapped_column(Float, default=0.0)  # seconds spent on it
     snippet: Mapped[str] = mapped_column(Text, default="")
     reasons: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    # When one stretch is not enough: every stretch to watch, in order
+    # ({video_id, start_s, end_s, covers}); empty when the main stretch suffices.
+    segments: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    uncovered: Mapped[list[Any]] = mapped_column(JSON, default=list)  # parts no video teaches
 
     topic: Mapped[Topic] = relationship(back_populates="recommendations")
     video: Mapped[Video] = relationship()

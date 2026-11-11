@@ -89,6 +89,15 @@ export interface Video {
   watched: boolean;
 }
 
+/** One stretch to watch when a topic is taught across several. */
+export interface Segment {
+  video: Video;
+  start_s: number;
+  end_s: number;
+  url: string;
+  covers: string[]; // the parts of the topic this stretch adds
+}
+
 export interface Recommendation {
   video: Video;
   rank: number;
@@ -102,6 +111,8 @@ export interface Recommendation {
   reasons: string[];
   url: string;
   feedback: FeedbackKind | null;
+  segments: Segment[]; // several stretches, in watching order; empty when one suffices
+  uncovered: string[]; // parts of the topic no video teaches
 }
 
 export interface Topic {

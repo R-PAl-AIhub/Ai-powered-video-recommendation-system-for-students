@@ -49,12 +49,17 @@ export function playQueue(topics: Topic[]): { items: PlayItem[]; indexOf: Map<nu
   for (const topic of topics) {
     if (topic.status === "matched" && topic.primary) {
       indexOf.set(topic.id, items.length);
-      items.push({
-        video: topic.primary.video,
-        startS: topic.primary.start_s,
-        endS: topic.primary.end_s,
-        label: topic.name,
-      });
+      const parts = topic.primary.segments.length
+        ? topic.primary.segments
+        : [{ video: topic.primary.video, start_s: topic.primary.start_s, end_s: topic.primary.end_s }];
+      parts.forEach((part, index) =>
+        items.push({
+          video: part.video,
+          startS: part.start_s,
+          endS: part.end_s,
+          label: parts.length > 1 ? `${topic.name} (part ${index + 1} of ${parts.length})` : topic.name,
+        }),
+      );
     }
   }
   return { items, indexOf };
@@ -451,7 +456,7 @@ export function PathTab({ project, busy, play }: TabProps) {
                   topic={topic}
                   number={number}
                   continues={continues}
-                  onPlay={() => play(queue.items, queue.indexOf.get(topic.id))}
+                  onPlay={(part = 0) => play(queue.items, (queue.indexOf.get(topic.id) ?? 0) + part)}
                 >
                   <MatchedControls
                     projectId={project.id}

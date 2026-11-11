@@ -46,6 +46,8 @@ def main() -> int:
     print(report.summary())
 
     failures = []
+    if report.split_topics:
+        failures.append("topics one video already covers were split into parts: " + ", ".join(report.split_topics))
     if report.unlabelled:
         failures.append("the syllabus parser produced topics that have no expected answer")
     for label, value, minimum in (

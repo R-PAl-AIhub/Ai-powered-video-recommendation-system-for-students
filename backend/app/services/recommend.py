@@ -21,13 +21,15 @@ from .matching import (
     get_index,
     hybrid_scores,
     locate,
+    other_runs,
     score_passages,
+    stretch_seconds,
     tidy_snippet,
     video_relevance,
 )
 from .rerank import get_reranker, query_hash
 from .sequencing import Candidate, choose_path
-from .topics import chunk_paragraphs, is_generic, split_questions
+from .topics import and_parts, chunk_paragraphs, is_generic, split_questions
 
 DEFAULT_THRESHOLD = 0.5
 THRESHOLD_RANGE = (-0.12, 0.20)  # how far feedback may move the threshold from the default
@@ -441,6 +443,192 @@ def _rank_score(
     return score
 
 
+# ------------------------------------------------------------------ segments
+
+ASPECT_MATCH = 0.6  # a notes passage or past question this close to a topic is one of its parts
+ASPECT_HIT = 0.5  # a stretch covers a part when one of its chunks is this close (calibrated)
+MAX_ASPECTS = 4
+MAX_SEGMENTS = 4
+SERIES_FLOOR = 0.3  # first-stage relevance a series fragment needs
+REPEAT_MIN_CHUNKS = 2  # a second stretch in the same video must be this long (not a recap)
+DUPLICATE = 0.95  # stretches this similar teach the same thing; the second is an alternate
+_PART_MARKER = re.compile(
+    r"\b(?:part|pt\.?|section)\s*[-:#]?\s*(?:\d+|[ivx]+|one|two|three|four)\b|\(\s*\d+\s*\)\s*$"
+    r"|\b(?:continued|contd)\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class Aspect:
+    label: str
+    vector: np.ndarray
+
+
+def _key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def topic_aspects(
+    project: Project,
+    embedder: Embedder,
+    topics: list[Topic],
+    texts: dict[int, str],
+    vectors: np.ndarray,
+) -> list[list[Aspect]]:
+    """The parts each topic should cover: its "X and Y" halves, and the past
+    questions and notes passages most clearly about it."""
+    aspects: list[list[Aspect]] = [[] for _ in topics]
+    names = {_key(t.name) for t in topics}
+    halves = [[part for part in and_parts(t.name) if _key(part) not in names] for t in topics]
+    flat = [part for parts in halves for part in parts]
+    if flat:
+        embedded = iter(embedder.embed_queries(flat))
+        for row, parts in enumerate(halves):
+            aspects[row] = [Aspect(part, next(embedded)) for part in parts]
+    lexical = [_lexical_text(texts[t.id], t) for t in topics]
+    for kind in ("exam", "notes"):
+        passages, passage_vectors = _collect(project, kind, embedder)
+        if not passages:
+            continue
+        scores = score_passages(embedder, vectors, lexical, passage_vectors, passages)
+        for row in range(len(topics)):
+            for i in np.argsort(-scores[row])[:2]:
+                if scores[row, i] >= ASPECT_MATCH and len(aspects[row]) < MAX_ASPECTS:
+                    aspects[row].append(Aspect(tidy_snippet(passages[i], 70), passage_vectors[i]))
+    return aspects
+
+
+def _series_stem(title: str) -> str | None:
+    if not _PART_MARKER.search(title):
+        return None
+    return _key(_PART_MARKER.sub(" ", title))
+
+
+def _whole_rows(index: ProjectIndex, column: int) -> tuple[int, int]:
+    start, end = index.spans[column]
+    return (start + 1, end - 1) if end - start > 1 else (start, start)
+
+
+def _mean(index: ProjectIndex, rows: tuple[int, int]) -> np.ndarray:
+    vector = index.matrix[rows[0] : rows[1] + 1].mean(axis=0)
+    return vector / (np.linalg.norm(vector) + 1e-9)
+
+
+def plan_segments(
+    index: ProjectIndex,
+    embedder: Embedder,
+    row: int,
+    column: int,
+    primary_rows: tuple[int, int],
+    chunk_scores: np.ndarray,
+    relevance: np.ndarray,
+    first_stage: np.ndarray,
+    threshold: float,
+    aspects: list[Aspect],
+    blocked: set[int],
+) -> tuple[list[dict], list[str]]:
+    """Every stretch of video needed to cover a topic, in watching order.
+
+    Starts from the chosen stretch and adds, MAX_SEGMENTS in all at most:
+    the other parts of a "Part 1 / Part 2" series around the chosen video; a
+    second substantial stretch where the same video teaches the topic again; and
+    the fewest stretches from any playlist that cover the parts (halves, past
+    questions, notes passages) still missing. Returns the segments and the
+    labels of parts no video covers.
+    """
+    low, high = embedder.calibration
+
+    def covered_by(rows: tuple[int, int]) -> set[int]:
+        block = index.matrix[rows[0] : rows[1] + 1]
+        return {
+            i
+            for i, aspect in enumerate(aspects)
+            if (float((block @ aspect.vector).max()) - low) / (high - low) >= ASPECT_HIT
+        }
+
+    primary = index.videos[column]
+    # (column, rows, whole video?, parts it adds)
+    plan: list[tuple[int, tuple[int, int], bool, list[str]]] = [(column, primary_rows, False, [])]
+    covered = covered_by(primary_rows)
+
+    # A topic split across a "Part 1 / Part 2" series: take the series in order.
+    stem = _series_stem(primary.title)
+    if stem and primary.playlist_id is not None:
+        by_place = {(v.playlist_id, v.playlist_position): c for c, v in enumerate(index.videos)}
+        series = [column]
+        for step in (-1, 1):
+            position = primary.playlist_position + step
+            while len(series) < MAX_SEGMENTS and (primary.playlist_id, position) in by_place:
+                c = by_place[(primary.playlist_id, position)]
+                other = index.videos[c]
+                if (
+                    _series_stem(other.title) != stem
+                    or not other.has_transcript
+                    or other.id in blocked
+                    or first_stage[row, c] < SERIES_FLOOR
+                ):
+                    break
+                series.append(c)
+                position += step
+        if len(series) > 1:
+            series.sort(key=lambda c: index.videos[c].playlist_position)
+            plan = [(c, _whole_rows(index, c), True, []) for c in series]
+            for c in series:
+                covered |= covered_by(_whole_rows(index, c))
+
+    # The same video teaching the topic again, away from the chosen stretch.
+    if len(plan) == 1:
+        for rows in other_runs(index, column, chunk_scores, primary_rows):
+            if rows[1] - rows[0] + 1 >= REPEAT_MIN_CHUNKS and len(plan) < MAX_SEGMENTS:
+                plan.append((column, rows, False, []))
+                covered |= covered_by(rows)
+
+    # Parts still missing: the fewest stretches, from any playlist, that cover them.
+    uncovered = set(range(len(aspects))) - covered
+    used = {item[0] for item in plan}
+    candidates: list[tuple[int, tuple[int, int], set[int]]] = []
+    if uncovered:
+        for c in np.flatnonzero(relevance[row] >= threshold):
+            c = int(c)
+            video = index.videos[c]
+            if c in used or video.id in blocked or not video.has_transcript or video.short:
+                continue
+            match = locate(index, c, chunk_scores, float(relevance[row, c]))
+            rows = (match.first_row, match.last_row)
+            candidates.append((c, rows, covered_by(rows)))
+    while uncovered and len(plan) < MAX_SEGMENTS and candidates:
+        best = max(
+            candidates,
+            key=lambda item: (
+                len(item[2] & uncovered),
+                index.videos[item[0]].playlist_id == primary.playlist_id,
+                float(relevance[row, item[0]]),
+            ),
+        )
+        gained = best[2] & uncovered
+        if not gained:
+            break
+        candidates.remove(best)
+        if any(float(_mean(index, best[1]) @ _mean(index, r)) >= DUPLICATE for _, r, _, _ in plan):
+            continue  # the same material again: an alternate, not a missing part
+        plan.append((best[0], best[1], False, [aspects[i].label for i in sorted(gained)]))
+        uncovered -= gained
+
+    # Watching order: a series as is; otherwise the chosen video's stretches by
+    # time, then the stretches from other videos.
+    if not plan[0][2]:
+        own = sorted((item for item in plan if item[0] == column), key=lambda item: item[1][0])
+        plan = own + [item for item in plan if item[0] != column]
+    segments = []
+    for c, rows, whole, covers in plan:
+        start_s, end_s = (0.0, 0.0) if whole else stretch_seconds(index, c, *rows)
+        segments.append(
+            {"video_id": index.videos[c].id, "start_s": start_s, "end_s": end_s, "covers": covers}
+        )
+    return segments, [aspects[i].label for i in sorted(uncovered)]
+
+
 # ---------------------------------------------------------------- recommendations
 
 
@@ -641,6 +829,7 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
                 for column in np.flatnonzero(relevance[row] >= threshold)
                 if index.videos[column].id not in feedback.blocked_videos
                 and (topic.id, index.videos[column].id) not in feedback.blocked_pairs
+                and not index.videos[column].short  # short clips only continue a series
             ),
             reverse=True,
         )[:CANDIDATES_PER_TOPIC]
@@ -671,6 +860,8 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
 
     chosen = choose_path([[candidate for candidate, _ in entries] for entries in options])
 
+    first_stage = video_relevance(index, scores)
+    aspect_lists = topic_aspects(project, embedder, topics, texts, vectors)
     previous: Candidate | None = None
     for row, topic in enumerate(topics):
         entries = options[row]
@@ -689,7 +880,24 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
             if dedicated_to(topic.id, video.title):
                 # The video is about this topic: study all of it.
                 match.start_s, match.end_s = 0.0, 0.0
+            segments: list[dict] = []
+            uncovered: list[str] = []
+            if rank == 0:
+                rows = (match.first_row, match.last_row)
+                if match.start_s == 0 and match.end_s == 0:
+                    rows = _whole_rows(index, column)
+                segments, uncovered = plan_segments(
+                    index, embedder, row, column, rows, scores[row], relevance,
+                    first_stage, threshold, aspect_lists[row], feedback.blocked_videos,
+                )
+                if len(segments) > 1 and segments[0]["video_id"] == video.id:
+                    match.start_s = segments[0]["start_s"]
+                    match.end_s = segments[0]["end_s"]
             reasons = _reasons(match, video.has_transcript)
+            if len(segments) > 1:
+                used = len({s["video_id"] for s in segments})
+                across = f" across {used} videos" if used > 1 else ""
+                reasons.insert(0, f"Taught in {len(segments)} parts{across}")
             if candidate.pinned:
                 reasons.insert(0, "You confirmed this video for the topic")
             if rank == 0 and previous is not None:
@@ -713,6 +921,8 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
                     coverage_s=match.coverage_s,
                     snippet=match.snippet,
                     reasons=reasons,
+                    segments=segments if len(segments) > 1 else [],
+                    uncovered=uncovered,
                 )
             )
         previous = entries[pick][0]

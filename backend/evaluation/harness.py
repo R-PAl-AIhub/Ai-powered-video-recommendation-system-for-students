@@ -154,6 +154,7 @@ class Report:
     errors: list[str] = field(default_factory=list)
     exam_topics: list[str] = field(default_factory=list)  # "name×hits", most asked first
     notes_topics: list[str] = field(default_factory=list)
+    split_topics: list[str] = field(default_factory=list)  # topics given several segments
 
     @property
     def top1_accuracy(self) -> float:
@@ -186,6 +187,7 @@ class Report:
             f"timestamp accuracy {self.start_accuracy:.3f}  ({self.starts_correct}/{self.starts_checked})",
             f"asked in the exam  {', '.join(self.exam_topics) or '-'}",
             f"found in the notes {', '.join(self.notes_topics) or '-'}",
+            f"split into parts   {', '.join(self.split_topics) or '-'}",
         ]
         lines += [f"  miss: {error}" for error in self.errors]
         lines += [f"  unlabelled topic: {name}" for name in self.unlabelled]
@@ -204,6 +206,8 @@ def evaluate(db: Session, backend_name: str) -> Report:
         report.exam_topics = [f"{t.name}×{t.exam_hits}" for t in asked]
         report.notes_topics = [t.name for t in project.topics if t.in_notes]
         for topic in project.topics:
+            if topic.recommendations and len(topic.recommendations[0].segments or []) > 1:
+                report.split_topics.append(topic.name)
             expected = os_course.EXPECTED.get(topic.name)
             if expected is None:
                 report.unlabelled.append(topic.name)

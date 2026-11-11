@@ -28,6 +28,7 @@ from ..schemas import (
     QuestionOut,
     QuestionsOut,
     RecommendationOut,
+    SegmentOut,
     TopicOut,
     VideoOut,
 )
@@ -128,12 +129,30 @@ def build_path(db: Session, project: Project) -> PathOut:
         for f in db.scalars(select(Feedback).where(Feedback.project_id == project.id))
     }
 
+    videos = {v.id: v for v in db.scalars(select(Video).where(Video.project_id == project.id))}
+
+    def segments_of(r: Recommendation) -> list[SegmentOut]:
+        return [
+            SegmentOut(
+                video=video_out(videos[s["video_id"]], playlists),
+                start_s=s["start_s"],
+                end_s=s["end_s"],
+                url=video_url(videos[s["video_id"]], s["start_s"], playlists),
+                covers=list(s.get("covers", [])),
+            )
+            for s in (r.segments or [])
+            if s["video_id"] in videos
+        ]
+
     out: list[TopicOut] = []
     path_videos: dict[int, Video] = {}
+    stretches: set[tuple[int, float, float]] = set()  # (video, start, end) to watch
     matched = gaps = covered = 0
     for topic in topics:
         recommendations = [
             RecommendationOut(
+                segments=segments_of(r),
+                uncovered=list(r.uncovered or []),
                 video=video_out(r.video, playlists),
                 rank=r.rank,
                 relevance=r.relevance,
@@ -156,7 +175,13 @@ def build_path(db: Session, project: Project) -> PathOut:
         elif primary:
             status = "matched"
             matched += 1
-            path_videos[primary.video.id] = topic.recommendations[0].video
+            first = topic.recommendations[0]
+            for s in first.segments or [
+                {"video_id": first.video_id, "start_s": first.start_s, "end_s": first.end_s}
+            ]:
+                if s["video_id"] in videos:
+                    path_videos[s["video_id"]] = videos[s["video_id"]]
+                    stretches.add((s["video_id"], s["start_s"], s["end_s"]))
         else:
             status = "gap"
             gaps += 1
@@ -178,8 +203,15 @@ def build_path(db: Session, project: Project) -> PathOut:
             )
         )
 
-    total = sum(v.duration_s for v in path_videos.values())
-    remaining = sum(v.duration_s for v in path_videos.values() if v.watched_at is None)
+    def length(video_id: int, start_s: float, end_s: float) -> float:
+        end = end_s or videos[video_id].duration_s
+        return max(0.0, end - start_s)
+
+    # Time to watch is the stretches the student is sent to, not whole videos.
+    total = int(sum(length(*s) for s in stretches))
+    remaining = int(
+        sum(length(*s) for s in stretches if videos[s[0]].watched_at is None)
+    )
     return PathOut(
         project_id=project.id,
         relevance_threshold=project.relevance_threshold,

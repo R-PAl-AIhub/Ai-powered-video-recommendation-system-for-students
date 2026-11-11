@@ -53,6 +53,8 @@ function pick(
     reasons: [reason],
     url: `https://www.youtube.com/watch?v=${v.youtube_id}${startS ? `&t=${startS}s` : ""}`,
     feedback: null,
+    segments: [],
+    uncovered: [],
   };
 }
 

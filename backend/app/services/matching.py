@@ -25,6 +25,8 @@ from .embeddings import Embedder, from_blob
 LEX_FULL = 0.30  # TF-IDF cosine regarded as a complete lexical match
 LEX_BOOST = 0.35  # how far a lexical match can lift a weak semantic score
 HOT_FRACTION = 0.75  # chunks within this fraction of the best chunk are on topic
+REPEAT_MEAN = 0.8  # ...and average this share across the stretch
+REPEAT_STRENGTH = 0.9  # a second stretch must reach this share of the best chunk
 STAY_FRACTION = 0.55  # once a stretch has started, it continues while chunks stay above this
 HOT_FLOOR = 0.35
 OUTRO_SECONDS = 60  # an end this close to the video's end means "to the end"
@@ -48,6 +50,7 @@ class VideoInfo:
     published_at: object | None  # datetime
     comment_sentiment: float | None
     has_transcript: bool
+    short: bool  # under MIN_VIDEO_SECONDS; only used to continue a series
     english: bool  # False when the transcript is in another language (not translated)
 
 
@@ -77,6 +80,8 @@ class Match:
     coverage_s: float = 0.0
     snippet: str = ""
     via: str = "transcript"  # transcript | title
+    first_row: int = -1  # index rows of the stretch (inclusive)
+    last_row: int = -1
 
 
 def _fit_tfidf(texts: list[str]):
@@ -180,8 +185,10 @@ def get_index(db: Session, project_id: int, embedder: Embedder) -> ProjectIndex:
     current_id = None
     minimum = get_settings().min_video_seconds
     for chunk, video in rows:
-        if 0 < video.duration_s < minimum:
-            continue  # trailers and Shorts cannot cover a syllabus topic
+        # Short clips without captions (trailers, promos) are dropped; short captioned
+        # clips stay, because a fragmented series can be made of them.
+        if 0 < video.duration_s < minimum and video.transcript_status != "ok":
+            continue
         if video.id != current_id:
             if current_id is not None:
                 spans[-1] = (spans[-1][0], len(texts))
@@ -200,6 +207,7 @@ def get_index(db: Session, project_id: int, embedder: Embedder) -> ProjectIndex:
                     published_at=video.published_at,
                     comment_sentiment=video.comment_sentiment,
                     has_transcript=video.transcript_status == "ok",
+                    short=0 < video.duration_s < minimum,
                     english=video.transcript_status != "ok"
                     or video.transcript_language.lower().startswith("en")
                     or video.transcript_language.lower().endswith("→en"),
@@ -325,4 +333,48 @@ def locate(index: ProjectIndex, column: int, chunk_scores: np.ndarray, relevance
         coverage_s=coverage,
         snippet=tidy_snippet(index.texts[row + best]),
         via=via,
+        first_row=row + run_start,
+        last_row=row + run_end,
     )
+
+
+def other_runs(
+    index: ProjectIndex, column: int, chunk_scores: np.ndarray, taken: tuple[int, int]
+) -> list[tuple[int, int]]:
+    """Further stretches where the same video teaches the topic again, away from
+    the stretch already taken (rows inclusive). At least two chunks apart."""
+    start, end = index.spans[column]
+    if end - start <= 1:
+        return []
+    transcript = chunk_scores[start + 1 : end]
+    best_score = float(transcript.max())
+    # Same rules as the main stretch: chunks that stay on the topic form a stretch.
+    # Teaching a topic twice means a second stretch about as strong as the best
+    # one; a weaker one is usually a neighbouring sub-topic or a recap.
+    stay = transcript >= max(STAY_FRACTION * best_score, HOT_FLOOR)
+    strong = REPEAT_STRENGTH * best_score
+    runs: list[tuple[int, int]] = []
+    i = 0
+    while i < len(stay):
+        if not stay[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < len(stay) and stay[j + 1]:
+            j += 1
+        first, last = start + 1 + i, start + 1 + j
+        apart = first > taken[1] + 2 or last < taken[0] - 2
+        stretch = transcript[i : j + 1]
+        # Strong at its peak and on the topic throughout, not an overview that names it.
+        if apart and float(stretch.max()) >= strong and float(stretch.mean()) >= REPEAT_MEAN * best_score:
+            runs.append((first, last))
+        i = j + 1
+    return runs
+
+
+def stretch_seconds(index: ProjectIndex, column: int, first: int, last: int) -> tuple[float, float]:
+    """Study range for rows first..last (0 = start or end of the video)."""
+    start_s = float(index.starts[first])
+    if start_s <= INTRO_SECONDS:
+        start_s = 0.0
+    return start_s, study_end(index, column, last)

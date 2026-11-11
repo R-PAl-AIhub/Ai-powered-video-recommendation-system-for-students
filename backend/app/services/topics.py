@@ -495,3 +495,21 @@ def extract_topics(
         if len(from_exams) >= 3:
             return _dedupe(topics + from_exams, limit), "exam"
     return topics, "syllabus"
+
+
+def and_parts(name: str) -> list[str]:
+    """The two parts of an "X and Y" topic, or [] when it is one idea.
+
+    "Deadlock detection and recovery" -> ["Deadlock detection", "Deadlock recovery"].
+    Kept whole when a side is a lone adjective: "Logical and physical address space",
+    "Necessary and sufficient conditions", "Pre-emptive and Non pre-emptive".
+    """
+    match = re.fullmatch(r"(.+?)\s+and\s+(.+)", name.strip(), flags=re.IGNORECASE)
+    if not match:
+        return []
+    left, right = match.group(1).split(), match.group(2).split()
+    if len(left) < 2:
+        return []
+    if len(right) == 1:
+        right = left[:-1] + right  # "Deadlock detection and recovery"
+    return [" ".join(left), " ".join(right)]

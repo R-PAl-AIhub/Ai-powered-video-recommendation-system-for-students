@@ -154,6 +154,16 @@ class VideoOut(Model):
     watched: bool = False
 
 
+class SegmentOut(BaseModel):
+    """One stretch to watch when a topic is taught across several."""
+
+    video: VideoOut
+    start_s: float
+    end_s: float  # 0 = to the end of the video
+    url: str
+    covers: list[str] = []  # the parts of the topic this stretch adds
+
+
 class RecommendationOut(BaseModel):
     video: VideoOut
     rank: int
@@ -167,6 +177,8 @@ class RecommendationOut(BaseModel):
     reasons: list[str]
     url: str
     feedback: FeedbackKind | None = None
+    segments: list[SegmentOut] = []  # several stretches; empty when one suffices
+    uncovered: list[str] = []  # parts of the topic no video teaches
 
 
 class TopicOut(BaseModel):

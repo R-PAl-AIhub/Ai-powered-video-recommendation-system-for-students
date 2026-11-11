@@ -3,7 +3,7 @@
 import { ArrowBendDownRight, Check, Notebook, Play, Target, Warning } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import type { Question, Topic, Video } from "../api";
+import type { Question, Recommendation, Topic, Video } from "../api";
 import { clock, compact, cx, plural, studyRange } from "../format";
 import { Layer, Tilt } from "../depth";
 import { Chip } from "../ui";
@@ -101,7 +101,7 @@ export function PathRow({
   topic: Topic;
   number: number;
   continues?: boolean; // same video as the step before
-  onPlay?: () => void;
+  onPlay?: (part?: number) => void;
   children?: ReactNode; // feedback controls, alternates
 }) {
   const pick = topic.primary!;
@@ -112,7 +112,7 @@ export function PathRow({
         {continues ? (
           <button
             type="button"
-            onClick={onPlay}
+            onClick={() => onPlay?.(0)}
             className="flex items-center gap-2 text-left text-sm text-soft transition-colors hover:text-ink"
           >
             <ArrowBendDownRight size={16} className="shrink-0 text-accent-ink" aria-hidden />
@@ -128,7 +128,7 @@ export function PathRow({
                   <Check size={12} weight="bold" aria-label="Watched" />
                 </span>
               ) : null}
-              <PlayButton onPlay={onPlay} label={`Play ${pick.video.title}`} />
+              <PlayButton onPlay={() => onPlay?.(0)} label={`Play ${pick.video.title}`} />
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <p className="line-clamp-2 text-sm font-medium leading-snug text-ink">
@@ -144,9 +144,45 @@ export function PathRow({
             </div>
           </div>
         )}
+        {pick.segments.length > 1 ? <Parts pick={pick} onPlay={onPlay} /> : null}
+        {pick.uncovered.length ? (
+          <p className="flex items-start gap-2 text-[13px] text-warn">
+            <Warning size={15} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
+            <span>No video covers: {pick.uncovered.join("; ")}. Study this part from your notes.</span>
+          </p>
+        ) : null}
         {children}
       </div>
     </li>
+  );
+}
+
+/** A topic taught across several stretches: watch them in this order. */
+function Parts({ pick, onPlay }: { pick: Recommendation; onPlay?: (part?: number) => void }) {
+  return (
+    <ol className="flex flex-col gap-1.5 rounded-field border border-line px-3 py-2.5">
+      <li className="text-[13px] font-medium text-soft">Watch in {pick.segments.length} parts</li>
+      {pick.segments.map((segment, index) => (
+        <li key={`${segment.video.id}-${segment.start_s}`}>
+          <button
+            type="button"
+            onClick={() => onPlay?.(index)}
+            className="flex w-full items-baseline gap-2 text-left text-sm transition-colors hover:text-ink"
+          >
+            <span className="tabular font-mono text-xs text-faint">{index + 1}.</span>
+            <span className="min-w-0 flex-1">
+              <span className="line-clamp-1 text-ink">{segment.video.title}</span>
+              <span className="tabular font-mono text-xs text-accent-ink">
+                study {studyRange(segment.start_s, segment.end_s)}
+              </span>
+              {segment.covers.length ? (
+                <span className="text-[13px] text-faint"> adds: {segment.covers.join("; ")}</span>
+              ) : null}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ol>
   );
 }
 
