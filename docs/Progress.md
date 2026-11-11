@@ -53,26 +53,28 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    Windows Notepad as "Unicode" (UTF-16) was refused as unsupported
    (`sniff_kind` in `services/documents.py`). `backend/.coverage` is no longer
    tracked in git.
-3. [~] Full app in the browser, as `start-waypoint.bat` runs it, on a throwaway
-   database (`backend/data/trial.db`, account `trial@example.com`, delete when
-   done). Done and working 2026-11-11: landing page, sign-up, new course, add a
-   real playlist, upload a syllabus file through the screen (a Notepad "Unicode"
-   file), build the path (job ran to "done" in about 40 s for 15 videos).
-   **Still to do: restart the server (it must load the new matching code), build
-   again, then check the Path tab, the player, feedback, Focus, Questions, Search,
-   and topic reorder by drag in the Topics tab. Then stop the server and delete
-   `trial.db*`.** Screenshots time out in this browser; drive the page with
-   `find` / `read_page` / `javascript_tool` instead. `start-waypoint.bat` itself
-   (the double-click) has still not been run.
-4. [~] More real playlists. Done 2026-11-11: a database-systems playlist (see
-   [[Matching Pipeline]], "Results"), judged against the transcripts, not the
-   titles (owner: a title can mean something else than what the video covers; the
-   same holds for books and articles). It exposed two matching errors, both fixed
-   (`apply_transcript_evidence` in `services/recommend.py`, 7 tests). **Still to
-   do: one non-English playlist** (candidates found by search: Gate Smashers,
-   Hindi: `PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW` "Normalization | DBMS",
-   `PLg1Ai66MkMKAHihK8UANWiUZKTHkkgV6R` "Linked List"). YouTube is not blocking
-   this PC at the moment.
+3. [x] Full app in the browser (2026-11-11), on a throwaway database, now deleted.
+   Worked: landing page, sign-up, new course, add a real playlist, upload a file
+   through the screen (a Notepad "Unicode" file), paste a past paper, build and
+   update the path, Path tab with study ranges, player (opens at the start second,
+   stops at the end second), "Wrong topic" and Undo, Focus, Questions, Search
+   (found and not found), Topics reorder by drag (saved to the server).
+   `start-waypoint.bat` itself was run: the server answered on
+   http://127.0.0.1:8000 and created an empty `backend/data/app.db`. The server
+   was stopped afterwards. Screenshots time out in this browser, so the look was
+   not checked by eye, only the content and behaviour.
+   Found and fixed: a past question with no direct answer now points to where its
+   topic is taught (`link_questions` in `services/questions.py`); real OS course
+   unchanged (6 of 8 answered). No dedicated test was written for this fallback.
+4. [~] More real playlists. Done: a database-systems playlist (see [[Matching
+   Pipeline]], "Results"), judged against the transcripts, not the titles. Its
+   transcripts are kept in `backend/data/live-dbms.db` (not in git) for offline
+   tuning. **Not done: a non-English playlist with real captions.** A Hindi
+   playlist (`PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW`) was tried at 20:01, but YouTube
+   had started refusing caption requests from this PC (IpBlocked, also for a
+   video that worked an hour before). The app handled it as designed: warning,
+   title-only path (7 of 13 matched), automatic retry scheduled. Try again when
+   the block has lifted (hours).
 5. [ ] Click through the live demo in a browser.
 6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
    `nextAi.txt` final, everything pushed.
@@ -300,6 +302,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Browser pass of the full app finished; `start-waypoint.bat` run and working; unanswered past questions fall back to where their topic is taught. Non-English run blocked by YouTube rate limiting. |
 | 2026-11-11 | (this commit) | Transcript evidence rules in matching (contents read-outs are not teaching; a topic discussed by name counts under any title), found on a real database-systems playlist checked against its transcripts; 188 tests, gate 25/25, real OS course unchanged. CI of `ed24d3c` fully green, including PostgreSQL and the Docker image. Full app verified in the browser up to a finished analysis. |
 | 2026-11-11 | `ed24d3c` | Race in stopping after a YouTube block fixed (the one CI failure); unit tests for jobs, youtube, ocr, documents; UTF-16 text files accepted. |
 | 2026-11-11 | (this commit) | Finishing pass 1 and 2: fixed the race in stopping after a YouTube block (the one CI failure, same on SQLite and PostgreSQL); unit tests for jobs, youtube, ocr, documents (181 tests, 90% coverage); UTF-16 text files now accepted. |

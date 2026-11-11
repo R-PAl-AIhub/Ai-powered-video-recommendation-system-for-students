@@ -11,10 +11,10 @@ from __future__ import annotations
 import re
 
 import numpy as np
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from ..models import Project, Question
+from ..models import Project, Question, Recommendation
 from .embeddings import from_blob, get_embedder
 from .matching import get_index, hybrid_scores, locate, video_relevance
 from .recommend import (
@@ -104,6 +104,23 @@ def link_questions(db: Session, project: Project) -> int:
                 match = locate(index, column, scores[row], float(relevance[row, column]))
                 answers[row] = (match.video_id, match.relevance, match.start_s, match.end_s, match.snippet)
                 break
+
+    # A question with no direct answer is still answered where its topic is taught.
+    # The path's choice for a topic uses more evidence than a one-off search for
+    # the question's wording (see apply_transcript_evidence), so the two agree.
+    db.flush()
+    taught = {
+        pick.topic_id: pick
+        for pick in db.scalars(
+            select(Recommendation).where(
+                Recommendation.project_id == project.id, Recommendation.rank == 0
+            )
+        )
+    }
+    for row, topic_id in enumerate(best_topic):
+        pick = taught.get(topic_id) if answers[row] is None else None
+        if pick is not None:
+            answers[row] = (pick.video_id, pick.relevance, pick.start_s, pick.end_s, pick.snippet)
 
     for row, (document_id, position, text) in enumerate(items):
         answer = answers[row]
