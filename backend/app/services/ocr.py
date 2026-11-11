@@ -99,9 +99,51 @@ _resolved = False
 _lock = threading.Lock()
 
 
+class GoogleVisionEngine:
+    """Google Cloud Vision document text detection: reads printed text and
+    handwriting. One HTTPS request per page; needs GOOGLE_VISION_API_KEY."""
+
+    name = "google-vision"
+    URL = "https://vision.googleapis.com/v1/images:annotate"
+
+    def __init__(self, api_key: str, transport=None):
+        import httpx
+
+        self._key = api_key
+        self._http = httpx.Client(timeout=60, transport=transport)
+
+    def read(self, image: Image.Image) -> str:
+        import base64
+        import io
+
+        buffer = io.BytesIO()
+        prepare_image(image).save(buffer, format="PNG")
+        payload = {
+            "requests": [
+                {
+                    "image": {"content": base64.b64encode(buffer.getvalue()).decode("ascii")},
+                    "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
+                }
+            ]
+        }
+        response = self._http.post(self.URL, params={"key": self._key}, json=payload)
+        response.raise_for_status()
+        result = response.json()["responses"][0]
+        if "error" in result:
+            raise RuntimeError(result["error"].get("message", "Vision API error"))
+        return (result.get("fullTextAnnotation") or {}).get("text", "").strip()
+
+
 def _build(backend: str) -> OcrEngine | None:
     if backend == "none":
         return None
+    key = get_settings().google_vision_api_key
+    if backend == "google" or (backend == "auto" and key):
+        if key:
+            return GoogleVisionEngine(key)
+        log.warning("OCR_BACKEND=google but GOOGLE_VISION_API_KEY is not set")
+        if backend == "google":
+            return None
     if backend in ("auto", "rapidocr"):
         try:
             return RapidOcrEngine()

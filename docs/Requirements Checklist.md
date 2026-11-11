@@ -28,10 +28,10 @@ Last checked: 2026-11-11.
 | Extract keywords and concepts from the syllabus (keyphrase extraction) | Done | `services/topics.py`: unit/topic parsing, keyphrase fallback; checked on 4 syllabus formats and a real syllabus |
 | Analyse exam questions (classification or TF-IDF) to find frequently tested concepts | Done | Questions split and matched to topics (`exam_hits`); "Focus" tab ranks them; `services/questions.py` |
 | (b) A set of exam-focused topics | Done | Exam questions weight syllabus topics, and phrases asked in two or more questions that the syllabus does not cover are added as topics (`source="exam"`), after the closest syllabus topic. Instruction words ("explain", "diagram") are filtered. Test: `test_topics_only_in_notes_or_exams_are_added`. |
-| Teacher's notes, printed or scanned, digitised with OCR | Untested | RapidOCR path in `services/documents.py` and `ocr.py`. Tests run with OCR off; never run on a real scan yet. |
-| OCR with Tesseract or Google Vision | Partial | RapidOCR by default, Tesseract if installed. No Google Vision backend. |
-| Handwritten notes via specialised handwriting recognition (HTR) | Not built | RapidOCR reads neat print and some handwriting. Options: Google Vision document text detection (handles handwriting, needs an API key), or a TrOCR handwriting model. |
-| OCR cleanup: spell-check, segmentation into paragraphs or bullets | Partial | `clean_text` repairs hyphenation, spacing and line breaks; no spell-check. |
+| Teacher's notes, printed or scanned, digitised with OCR | Done | RapidOCR read a scanned PDF exactly and a handwriting-font photo with one error (fixed by the spell-check below). Tests: `tests/test_documents.py`, including a scanned syllabus uploaded through the API that becomes topics. |
+| OCR with Tesseract or Google Vision | Done | `OCR_BACKEND`: Google Vision when `GOOGLE_VISION_API_KEY` is set, else RapidOCR, else Tesseract. Vision tested against a mocked API (no key available to call the real one). |
+| Handwritten notes via specialised handwriting recognition (HTR) | Done (with a Vision key) | Google Vision's document text detection is a handwriting recogniser; it is used automatically when the key is set. Without a key, RapidOCR reads neat handwriting (verified on a handwriting-style font). |
+| OCR cleanup: spell-check, segmentation into paragraphs or bullets | Done | `clean_text` repairs hyphenation, spacing and line breaks; `spell_correct` fixes OCR misreadings against the course's own vocabulary (only clear, unambiguous matches). Tested. |
 | (c) A set of lecture-note topics; notes summarised or keywords extracted | Done | Note headings (including one-word headings before a paragraph) not covered by the syllabus are added as topics (`source="notes"`), after the closest syllabus topic; notes also mark topics "in your notes" and steer topic vectors. Same test. |
 | Common text format for all inputs, comparable with transcripts | Done | All inputs become plain text, then the same embedding and TF-IDF space |
 
@@ -80,7 +80,7 @@ Last checked: 2026-11-11.
 |---|---|---|
 | Web app: single-page React front end, Python back end | Done | React + FastAPI |
 | Login and project setup | Done | Browser-checked |
-| Upload playlists, syllabus PDFs or text, scanned notes and papers | Partial | Built; uploads of real PDFs and images not yet run end to end (see OCR row) |
+| Upload playlists, syllabus PDFs or text, scanned notes and papers | Done | Scanned PDF upload to topics tested end to end; photos and Word files read correctly |
 | Backend processing: OCR, PDF parsing, transcripts, NLP, matching, sequencing | Done | Job queue with progress; real playlist run |
 | Display: titles, links, topic labels, missing topics marked, search box | Done | Browser-checked |
 | Each video shows thumbnail, title and a short summary | Done | Thumbnail, title, a transcript excerpt from the matched stretch, and the reason it was picked. |

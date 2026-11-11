@@ -46,7 +46,10 @@ class Settings(BaseSettings):
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     model_dir: Path | None = None  # where model files are cached
     min_video_seconds: int = 120  # shorter clips (trailers, Shorts) are never recommended
-    ocr_backend: Literal["auto", "rapidocr", "tesseract", "none"] = "auto"
+    # auto: Google Vision when GOOGLE_VISION_API_KEY is set (best for handwriting),
+    # else RapidOCR, else Tesseract.
+    ocr_backend: Literal["auto", "google", "rapidocr", "tesseract", "none"] = "auto"
+    google_vision_api_key: str | None = None
     max_upload_mb: int = 25
     max_documents_per_project: int = 40
     max_topics_per_project: int = 250

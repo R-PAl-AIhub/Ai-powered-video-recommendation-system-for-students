@@ -330,6 +330,19 @@ def fetch_videos(
     return blocked
 
 
+def course_vocabulary(db: Session, project: Project) -> dict[str, int]:
+    """Words used in this course: transcripts, titles and documents already read."""
+    texts = list(
+        db.scalars(
+            select(VideoChunk.text)
+            .join(Video, Video.id == VideoChunk.video_id)
+            .where(Video.project_id == project.id)
+        )
+    )
+    texts += [d.text for d in project.documents if d.status == "ready" and d.text]
+    return documents_service.vocabulary_of(texts)
+
+
 def read_documents(db: Session, project: Project, report: Progress, warnings: list[str]) -> None:
     settings = get_settings()
     pending = [d for d in project.documents if d.status == "pending"]
@@ -345,7 +358,13 @@ def read_documents(db: Session, project: Project, report: Progress, warnings: li
             document.status, document.error = "error", "The uploaded file is no longer available."
             warnings.append(f"{document.filename}: the uploaded file is no longer available.")
         else:
-            document.text = extracted.text
+            text = extracted.text
+            if extracted.ocr_pages and text:
+                # OCR misreads letters; correct them against this course's own words.
+                text, fixed = documents_service.spell_correct(text, course_vocabulary(db, project))
+                if fixed:
+                    log.info("corrected %d OCR words in %s", fixed, document.filename)
+            document.text = text
             document.page_count = extracted.page_count
             document.ocr_pages = extracted.ocr_pages
             document.status = "ready" if extracted.text else "error"

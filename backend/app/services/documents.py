@@ -70,6 +70,66 @@ def clean_text(text: str) -> str:
     return text.strip()[:MAX_TEXT_CHARS]
 
 
+_WORD = re.compile(r"[A-Za-z][A-Za-z'-]*")
+
+
+def spell_correct(text: str, vocabulary: dict[str, int]) -> tuple[str, int]:
+    """Fix OCR misreadings against the course's own vocabulary.
+
+    A word is changed only when it is unknown, at least five letters long, and
+    one known word (seen at least twice) is a clear close match, so subject terms
+    are never "corrected" into ordinary English. Returns the text and how many
+    words were changed.
+    """
+    import difflib
+
+    known = [w for w, n in vocabulary.items() if n >= 2 and len(w) >= 4]
+    by_length: dict[int, list[str]] = {}
+    for word in known:
+        by_length.setdefault(len(word), []).append(word)
+    cache: dict[str, str | None] = {}
+    changed = 0
+
+    def fix(match: re.Match) -> str:
+        nonlocal changed
+        word = match.group(0)
+        lower = word.lower()
+        if len(lower) < 5 or lower in vocabulary:
+            return word
+        if lower not in cache:
+            pool = [w for n in range(len(lower) - 1, len(lower) + 2) for w in by_length.get(n, [])]
+            close = difflib.get_close_matches(lower, pool, n=2, cutoff=0.84)
+            # Ambiguous (two equally good candidates) or nothing close: leave it.
+            if len(close) == 1 or (
+                len(close) == 2
+                and difflib.SequenceMatcher(None, lower, close[0]).ratio()
+                > difflib.SequenceMatcher(None, lower, close[1]).ratio() + 0.04
+            ):
+                cache[lower] = close[0]
+            else:
+                cache[lower] = None
+        replacement = cache[lower]
+        if replacement is None:
+            return word
+        changed += 1
+        if word.isupper():
+            return replacement.upper()
+        if word[:1].isupper():
+            return replacement.capitalize()
+        return replacement
+
+    return _WORD.sub(fix, text), changed
+
+
+def vocabulary_of(texts: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for text in texts:
+        for word in _WORD.findall(text):
+            lower = word.lower()
+            counts[lower] = counts.get(lower, 0) + 1
+    return counts
+
+
 def _ocr_image(image: Image.Image, result: Extracted, label: str) -> str:
     engine = get_ocr()
     if engine is None:

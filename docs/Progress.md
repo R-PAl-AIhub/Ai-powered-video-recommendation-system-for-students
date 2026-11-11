@@ -33,7 +33,7 @@ note and committing after each:
    from YouTube (record as not possible).
 5. ~~**Notes and exam topics**~~ (done 2026-11-11). Was: add topics found only in notes or exams, placed after
    the most similar syllabus topic, `source="notes"` / `"exam"`.
-6. **OCR end to end on real files:** upload an image-only PDF, a PNG photo of
+6. ~~**OCR end to end on real files**~~ (done 2026-11-11). Was: upload an image-only PDF, a PNG photo of
    notes and a DOCX to the demo project; confirm `ocr_pages > 0` and topics react.
    Add spell-check after OCR (correct out-of-vocabulary words against the course
    vocabulary). Add a Google Vision backend (`OCR_BACKEND=google`, API key) for
@@ -145,6 +145,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | OCR verified on real files (scanned PDF, handwriting-style photo, Word); spell-check of OCR text against course vocabulary; Google Vision backend for handwriting. 45 tests pass. |
 | 2026-11-11 | (this commit) | Topics found only in notes or past papers are added after the closest syllabus topic; better note-heading detection. Tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | Fuzzy ranking now uses upload age, comment volume and comment sentiment (Data API, migration 0003). 40 tests pass; gate 25/25. |
 | 2026-11-11 | (this commit) | Study ranges (start and end second, migration 0002, player stops at the end), transcript summary on each path entry, "Already in my playlist" label. 39 tests pass; frontend builds. |
