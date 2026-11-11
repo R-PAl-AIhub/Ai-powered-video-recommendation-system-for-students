@@ -23,6 +23,10 @@ re-argued. Change one only with new evidence.
 | Feedback is undone from a bar at the bottom of the screen, not from the row | Feedback can turn a row into a different video, a gap or a known topic, so a control inside the row would disappear with the change. |
 | Landing page shows real components with real data | Fake screenshots are the most recognisable sign of generic AI design. |
 | `idea.docx` and the link-list documents are not in git | The repository is public. |
+| Study material is matched per passage with pages kept, and never creates topics | A student needs "pp. 11–12, §Reader-Writer Locks", not "this book". A whole textbook names far more than the course asks, so topic extraction stays with the syllabus, notes and papers. |
+| Web pages are fetched only from public addresses, re-checked at every redirect, connecting to the checked IP | The server fetches addresses typed by users; without this it could be used to reach internal systems or cloud metadata (SSRF), including through DNS rebinding. |
+| Not deployed on Vercel | Vercel runs serverless functions with a size limit far below the models plus onnxruntime, no long-lived worker for the job queue, and no persistent disk. The full app ships as a Docker image (GHCR) with `render.yaml` and `docker-compose.yml`; GitHub Pages hosts a static, read-only demo of the interface with real sample data. |
+| Python 3.13 in the image and CI | Development uses 3.14, but every compiled dependency (onnxruntime, ctranslate2, OpenCV) has long-standing 3.13 wheels. |
 
 ## Related
 

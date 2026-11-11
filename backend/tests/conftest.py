@@ -10,7 +10,9 @@ from pathlib import Path
 _WORKDIR = Path(tempfile.mkdtemp(prefix="recommender-tests-"))
 os.environ.update(
     ENVIRONMENT="test",
-    DATABASE_URL=f"sqlite:///{(_WORKDIR / 'test.db').as_posix()}",
+    # CI runs the suite a second time on PostgreSQL by setting TEST_DATABASE_URL.
+    DATABASE_URL=os.environ.get("TEST_DATABASE_URL")
+    or f"sqlite:///{(_WORKDIR / 'test.db').as_posix()}",
     DATA_DIR=str(_WORKDIR),
     EMBEDDING_BACKEND="hash",  # deterministic, lexical, instant
     RERANKER_MODEL="",
