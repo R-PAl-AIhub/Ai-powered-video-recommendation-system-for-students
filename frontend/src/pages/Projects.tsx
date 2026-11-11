@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { api, ApiError, type ProjectSummary } from "../api";
+import { DepthFloor, Layer, Tilt } from "../depth";
 import { plural } from "../format";
 import { useSession, useSetSession } from "../session";
 import {
@@ -31,7 +32,10 @@ export function AppBar({ children }: { children?: ReactNode }) {
     },
   });
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md">
+    <>
+      {/* Outside the header: its backdrop blur would trap a fixed element. */}
+      <DepthFloor />
+      <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-4">
           <Link to="/app" aria-label="Your projects" className="shrink-0">
@@ -47,7 +51,8 @@ export function AppBar({ children }: { children?: ReactNode }) {
           </IconButton>
         </div>
       </div>
-    </header>
+      </header>
+    </>
   );
 }
 
@@ -55,14 +60,16 @@ function ProjectCard({ project, onDelete }: { project: ProjectSummary; onDelete:
   const done = project.matched + project.covered;
   const running = project.job?.status === "queued" || project.job?.status === "running";
   return (
-    <li className="group relative rounded-card border border-line bg-raised shadow-card transition-colors duration-200 hover:border-line-strong">
+    <li className="group relative">
+      <Tilt className="h-full rounded-card border border-line bg-raised shadow-card transition-colors duration-200 hover:border-line-strong">
       <Link to={`/app/p/${project.id}`} className="flex h-full flex-col gap-6 rounded-card p-6">
-        <div className="flex flex-col gap-1 pr-10">
+        <Layer z={34} className="flex flex-col gap-1 pr-10">
           <h2 className="truncate text-xl font-semibold">{project.name}</h2>
           <p className="truncate text-sm text-soft">{project.subject || "No subject set"}</p>
-        </div>
+        </Layer>
         {project.topics > 0 ? (
-          <dl className="mt-auto grid grid-cols-3 gap-4">
+          <Layer z={18} className="mt-auto">
+          <dl className="grid grid-cols-3 gap-4">
             <div>
               <dt className="text-xs text-faint">Topics matched</dt>
               <dd className="tabular mt-1 font-mono text-lg">
@@ -81,6 +88,7 @@ function ProjectCard({ project, onDelete }: { project: ProjectSummary; onDelete:
               <dd className="tabular mt-1 font-mono text-lg">{project.watched}</dd>
             </div>
           </dl>
+          </Layer>
         ) : (
           <p className="mt-auto text-sm text-faint">
             {running ? "Analysing your sources…" : "Add playlists and a syllabus to begin."}
@@ -94,6 +102,7 @@ function ProjectCard({ project, onDelete }: { project: ProjectSummary; onDelete:
       >
         <Trash size={17} />
       </IconButton>
+      </Tilt>
     </li>
   );
 }

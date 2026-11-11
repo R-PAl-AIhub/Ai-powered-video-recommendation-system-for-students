@@ -37,6 +37,29 @@ the pointer. It is lazy-loaded (three.js is about 180 kB gzipped and only the
 landing page needs it), static under reduced motion, and simply absent if WebGL
 is unavailable.
 
+## Depth across the whole site (`src/depth.tsx`)
+
+The owner asked for the whole site, not only the hero, to have a 3D look.
+
+- **`Tilt` and `Layer`:** cards lean toward the pointer (spring-driven Motion
+  values, no React re-renders) with a moving sheen; `Layer` lifts content above the
+  card (titles about 20 to 34px, the answering video in question cards 42px). Used on
+  course cards, question cards and the landing bento cells. Off on touch screens and
+  under reduced motion, where cards render flat and identical.
+- **`DepthFloor`:** a perspective grid plane fixed at the bottom of every signed-in
+  page and the sign-in page. Pure CSS (`.depth-floor` in `styles.css`). Rendered by
+  `AppBar` as a sibling of the header, because the header's backdrop blur would
+  trap a fixed element.
+- **Coverflow:** the landing page's question cards turn like a coverflow as they
+  scroll past the centre (`.coverflow`, CSS scroll-driven animation; flat where
+  unsupported or under reduced motion).
+- **Sign-in page:** the hero's 3D scene sits beside the form on wide screens.
+
+Note for whoever tests this: Windows with "Animation effects" off reports
+`prefers-reduced-motion: reduce`, so all motion stays still. The owner's machine
+had this setting on 2026-11-11. To test motion in Chrome DevTools, override
+`matchMedia` with an init script.
+
 ## Files (`frontend/src/`)
 
 | File | Purpose |
@@ -47,6 +70,7 @@ is unavailable.
 | `session.tsx` | Current user, sign-in guard |
 | `ui.tsx` | Button, Field, Chip, Card, Notice, Dialog, ThemeToggle, Logo |
 | `format.ts` | Time, numbers, class names |
+| `depth.tsx` | `Tilt`, `Layer`, `DepthFloor`: the 3D look outside the hero |
 | `sample.ts` | Real sample data for the landing page |
 | `scene/HeroScene.tsx` | The 3D hero |
 | `pages/parts.tsx` | PathRow, GapRow, KnownRow, QuestionCard, FocusRow (shared with the landing page) |

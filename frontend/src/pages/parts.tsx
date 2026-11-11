@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import type { Question, Topic, Video } from "../api";
 import { clock, compact, cx, plural } from "../format";
+import { Layer, Tilt } from "../depth";
 import { Chip } from "../ui";
 
 export function Thumb({ video, className }: { video: Video; className?: string }) {
@@ -206,19 +207,18 @@ export function QuestionCard({
 }) {
   const answer = question.answer;
   return (
-    <article
-      className={cx(
-        "flex flex-col gap-4 rounded-card border border-line bg-raised p-5 shadow-card",
-        className,
-      )}
-    >
-      <div className="flex flex-wrap gap-1.5">
-        <Chip>{question.source}</Chip>
-        {question.topic_name ? <Chip tone="accent">{question.topic_name}</Chip> : null}
-      </div>
-      <p className="text-[15px] leading-relaxed text-ink">{question.text}</p>
+    <Tilt className={cx("rounded-card border border-line bg-raised shadow-card", className)}>
+    <article className="flex h-full flex-col gap-4 p-5">
+      <Layer z={20} className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-1.5">
+          <Chip>{question.source}</Chip>
+          {question.topic_name ? <Chip tone="accent">{question.topic_name}</Chip> : null}
+        </div>
+        <p className="text-[15px] leading-relaxed text-ink">{question.text}</p>
+      </Layer>
       {answer ? (
-        <div className="mt-auto flex gap-3 border-t border-line pt-4">
+        <Layer z={42} className="mt-auto">
+        <div className="flex gap-3 border-t border-line pt-4">
           <div className="relative w-28 shrink-0">
             <Thumb video={answer.video} className="w-full" />
             <PlayButton onPlay={onPlay} label={`Play the answer in ${answer.video.title}`} />
@@ -238,6 +238,7 @@ export function QuestionCard({
             ) : null}
           </div>
         </div>
+        </Layer>
       ) : (
         <p className="mt-auto flex items-start gap-2 border-t border-line pt-4 text-sm text-warn">
           <Warning size={17} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
@@ -245,6 +246,7 @@ export function QuestionCard({
         </p>
       )}
     </article>
+    </Tilt>
   );
 }
 

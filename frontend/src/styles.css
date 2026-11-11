@@ -191,6 +191,72 @@
   }
 }
 
+/*
+ * The floor: a grid plane laid back in perspective at the bottom of the screen,
+ * fading toward the horizon. Fixed and behind everything, so it costs one
+ * composited layer and never repaints on scroll.
+ */
+.depth-floor {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 46vh;
+  z-index: -1;
+  pointer-events: none;
+  perspective: 520px;
+  perspective-origin: 50% 0%;
+  overflow: hidden;
+}
+.depth-floor::before {
+  content: "";
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  top: 0;
+  height: 220%;
+  transform-origin: 50% 0%;
+  transform: rotateX(68deg);
+  background-image:
+    linear-gradient(to right, var(--line-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-strong) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 60%, transparent 100%);
+  opacity: 0.55;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .depth-floor {
+    display: none;
+  }
+}
+
+/* A row of cards that turn like a coverflow as they scroll past the centre.
+ * Scroll-driven animation; browsers without it get a flat row. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .coverflow {
+      perspective: 1200px;
+    }
+    .coverflow > * {
+      animation: coverflow linear both;
+      animation-timeline: view(inline);
+    }
+  }
+}
+@keyframes coverflow {
+  0% {
+    transform: rotateY(38deg) translateZ(-90px) scale(0.92);
+    opacity: 0.45;
+  }
+  40%,
+  60% {
+    transform: rotateY(0deg) translateZ(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateY(-38deg) translateZ(-90px) scale(0.92);
+    opacity: 0.45;
+  }
+}
+
 @keyframes shimmer {
   to {
     background-position: -200% 0;

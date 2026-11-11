@@ -3,6 +3,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "motion/react"
 import { lazy, type ReactNode, Suspense, useRef, useState } from "react";
 import { Link } from "react-router";
 
+import { Tilt } from "../depth";
 import { cx } from "../format";
 import { sampleFocus, samplePath, sampleQuestions, sampleThumbs } from "../sample";
 import { useSession } from "../session";
@@ -148,6 +149,7 @@ function Inputs() {
 
       <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-5">
         <Reveal className="lg:col-span-3">
+          <Tilt className="h-full rounded-card" max={4}>
           <div className="flex h-full flex-col justify-between gap-10 overflow-hidden rounded-card border border-line bg-raised p-6 md:p-8">
             <div className="perspective-scene flex justify-center py-4">
               {/* Thumbnails fanned like cards held in a hand. */}
@@ -172,9 +174,11 @@ function Inputs() {
               </p>
             </div>
           </div>
+          </Tilt>
         </Reveal>
 
         <Reveal delay={0.08} className="lg:col-span-2">
+          <Tilt className="h-full rounded-card" max={5}>
           <div className="flex h-full flex-col justify-between gap-10 rounded-card bg-accent p-6 text-on-accent md:p-8">
             <ul className="flex flex-wrap gap-2">
               {TOPIC_NAMES.map((name) => (
@@ -194,9 +198,11 @@ function Inputs() {
               </p>
             </div>
           </div>
+          </Tilt>
         </Reveal>
 
         <Reveal delay={0.05} className="lg:col-span-5">
+          <Tilt className="h-full rounded-card" max={2.5}>
           <div className="grid grid-cols-1 items-center gap-8 rounded-card border border-line bg-sunken p-6 md:grid-cols-2 md:p-8">
             <div className="flex max-w-[48ch] flex-col gap-2">
               <h3 className="text-2xl font-semibold">Your past papers</h3>
@@ -211,6 +217,7 @@ function Inputs() {
               ))}
             </ol>
           </div>
+          </Tilt>
         </Reveal>
       </div>
     </section>
@@ -354,7 +361,9 @@ function Questions() {
         </Reveal>
       </div>
       <Reveal delay={0.1}>
-        <ul className="scrollbar-none mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 md:px-8">
+        <ul className="coverflow scrollbar-none mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-[max(1rem,calc(50vw-12rem))] py-6">
+          {/* Side padding of half the viewport lets the first and last card reach
+              the centre, where the coverflow turns them face-on. */}
           {sampleQuestions.map((question) => (
             <li key={question.id} className="w-[min(86vw,24rem)] shrink-0 snap-start">
               <QuestionCard question={question} className="h-full" />

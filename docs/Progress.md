@@ -14,8 +14,8 @@ and the README are not started.
 
 ## Resume here
 
-**Next action: make the whole site feel 3D** (owner's request, 2026-11-11; see
-to-do item 2a), then Deployment (item 3). Migrations are done. The steps below are
+**Next action: Deployment** (to-do item 3). The site-wide 3D work (item 2a) is done;
+a possible follow-up is depth on the workspace's Path rows. Migrations are done. The steps below are
 kept as the recipe for running the demo; step 1's manual `ALTER TABLE` is no longer
 needed, because startup now upgrades old databases automatically.
 
@@ -76,11 +76,10 @@ needed, because startup now upgrades old databases automatically.
    as nullable, then stamped. 4 tests in `tests/test_migrations.py`. **Adding a
    column from now on:** change the model, then
    `alembic revision --autogenerate -m "..."` in `backend/`, review the file, commit.
-2a. **3D look across the whole site** (owner's request). The hero already has a
-   WebGL scene and the path preview tilts on scroll; the rest is flat. Plan:
-   pointer-driven 3D tilt with depth layers on cards (Motion values, off for touch
-   and reduced motion), the 3D scene beside the sign-in form, a 3D coverflow for the
-   landing page's questions row, and depth on the workspace header.
+2a. ~~3D look across the whole site~~ (done 2026-11-11): pointer tilt with depth
+   layers on cards, a perspective floor behind every signed-in page, a coverflow on
+   the landing questions row, and the 3D scene beside the sign-in form. See
+   [[Frontend]].
 3. **Deployment**: `Dockerfile` (build the frontend, install the backend, bake both
    models in with `MODEL_DIR` set at build time, install `libgl1` and
    `libglib2.0-0` for OpenCV/RapidOCR, set `FRONTEND_DIST` explicitly because the
@@ -117,7 +116,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-11 | (this commit) | Alembic migrations: initial revision, startup upgrade, adoption of pre-migration databases, 4 tests. 38 tests pass, lint clean. |
+| 2026-11-11 | (this commit) | 3D look across the whole site (`src/depth.tsx`): card tilt with depth layers, perspective floor, landing coverflow, 3D scene on sign-in. Verified in the browser: floor renders; tilt activates with layers applied under a motion-allowed setting. Found the owner's Windows has animation effects off, so motion stays still there by design. |
+| 2026-11-11 | `5071257` | Alembic migrations: initial revision, startup upgrade, adoption of pre-migration databases, 4 tests. 38 tests pass, lint clean. |
 | 2026-11-11 | `cb5ad50` | Browser check finished: Focus, Search, Topics, Sources tabs; phone width 390 with emulation; light theme. Fixed the landing nav overflowing on phones (a "hidden" class lost to the button's own inline-flex). |
 | 2026-11-11 | `1c57648` | Browser check of the signed-in app. Added an undo bar for feedback: "Wrong topic", "Irrelevant" and "I know this" change the row completely, so there was no way back. Verified in the browser: wrong topic swaps in the next video, undo restores it. Removed a redundant iframe attribute. Found that a video with only a mis-labelled Turkish caption track produced garbage snippets in the cached data; the current pipeline already marks such captions as unreadable (`foreign`), confirmed by re-running on the demo data. |
 | 2026-11-11 | `d60991b` | Browser check started (Chrome DevTools tools; the Claude-in-Chrome extension was disconnected). Landing page renders, the 3D scene works, no console errors besides the expected 401 from `/api/auth/me` when signed out. Fixed: in the light theme the 3D slabs were pale grey and washed out, so they now use a dark "screen" colour (`--screen`) in both themes; the hero headline now fits on two lines. |

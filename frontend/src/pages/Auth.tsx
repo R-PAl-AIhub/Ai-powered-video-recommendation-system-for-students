@@ -1,8 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, lazy, Suspense, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 
 import { api, ApiError } from "../api";
+import { DepthFloor } from "../depth";
+
+const HeroScene = lazy(() => import("../scene/HeroScene"));
 import { useSession, useSetSession } from "../session";
 import { Button, Field, Logo, Notice, ThemeToggle } from "../ui";
 
@@ -37,7 +40,17 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="relative isolate flex min-h-[100dvh] flex-col">
+      <DepthFloor />
+      {/* The landing page's scene, beside the form on wide screens. */}
+      <div
+        aria-hidden
+        className="absolute inset-y-0 right-0 -z-10 hidden w-[55%] [mask-image:linear-gradient(to_right,transparent,black_30%)] lg:block"
+      >
+        <Suspense fallback={null}>
+          <HeroScene />
+        </Suspense>
+      </div>
       <header className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between px-4 md:px-8">
         <Link to="/" aria-label="Waypoint home">
           <Logo />
@@ -45,7 +58,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
         <ThemeToggle />
       </header>
 
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 pb-24">
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 pb-24 lg:mr-auto lg:ml-[max(2rem,calc(50vw-36rem))]">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-semibold">{signup ? "Create your account" : "Welcome back"}</h1>
           <p className="text-soft">
