@@ -27,7 +27,7 @@ export function VideoMeta({ video, startS, endS = 0 }: { video: Video; startS?: 
   return (
     <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-faint">
       <span>{parts.filter(Boolean).join(", ")}</span>
-      {startS !== undefined && (startS >= 1 || endS > 0) ? (
+      {startS !== undefined ? (
         <span className="tabular font-mono text-xs text-accent-ink">study {studyRange(startS, endS)}</span>
       ) : null}
     </p>

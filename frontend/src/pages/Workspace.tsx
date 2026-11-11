@@ -105,7 +105,7 @@ function Player({
               <p className="truncate font-medium">{item.video.title}</p>
               <p className="text-[13px] text-faint">
                 {item.video.channel}
-                {item.startS >= 1 || (item.endS ?? 0) > 0 ? `, study ${studyRange(item.startS, item.endS ?? 0)}` : ""}
+                {`, study ${studyRange(item.startS, item.endS ?? 0)}`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

@@ -50,8 +50,9 @@ export function embedUrl(youtubeId: string, startSeconds: number, endSeconds = 0
   return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params}`;
 }
 
-/** What to watch: "2:43 to 6:10", or "2:43 to the end" when the topic runs on. */
+/** What to watch: "2:43 to 6:10", "2:43 to the end", or "the whole video". */
 export function studyRange(startS: number, endS: number): string {
+  if (startS < 1 && endS <= 0) return "the whole video";
   const from = startS >= 1 ? clock(startS) : "0:00";
   return endS > startS ? `${from} to ${clock(endS)}` : `${from} to the end`;
 }
