@@ -21,6 +21,7 @@ from ..config import get_settings
 from ..models import Document, Playlist, Project, Topic, Video, VideoChunk, utcnow
 from . import documents as documents_service
 from .embeddings import get_embedder, to_blob
+from .fuzzy import comment_sentiment
 from .matching import invalidate_index
 from .questions import link_questions
 from .recommend import ensure_topic_vectors, rebuild_recommendations
@@ -405,6 +406,25 @@ def sync_topics(db: Session, project: Project, warnings: list[str], *, reextract
     db.commit()
 
 
+def score_comments(db: Session, project: Project, client: YouTubeClient) -> None:
+    """Viewer sentiment for each video, from its top comments (one request each).
+
+    Only clients that can read comments cheaply offer ``fetch_comments`` (the
+    official Data API); without one, ranking simply has one signal fewer.
+    """
+    fetch = getattr(client, "fetch_comments", None)
+    if fetch is None:
+        return
+    for video in db.scalars(
+        select(Video).where(Video.project_id == project.id, Video.comment_sentiment.is_(None))
+    ):
+        try:
+            video.comment_sentiment = comment_sentiment(fetch(video.youtube_id))
+        except Exception as exc:  # a ranking nicety; never fail the analysis for it
+            log.info("comments unavailable for %s: %s", video.youtube_id, exc)
+    db.commit()
+
+
 def embed_videos(db: Session, project: Project, report: Progress) -> None:
     embedder = get_embedder()
     videos = list(
@@ -468,6 +488,8 @@ def run_pipeline(
 
     stage_report("transcripts", 0, "Fetching video transcripts")
     blocked = fetch_videos(db, project, client, stage_report, warnings)
+
+    score_comments(db, project, client)
 
     stage_report("documents", 0, "Reading your documents")
     read_documents(db, project, stage_report, warnings)

@@ -471,6 +471,20 @@ class DataApiBackend:
     def fetch_transcript(self, video_id: str) -> Transcript | None:
         return _fetch_transcript(video_id)
 
+    def fetch_comments(self, video_id: str, limit: int = 30) -> list[str]:
+        """Top viewer comments (one request). Empty when comments are off."""
+        try:
+            data = self._get(
+                "commentThreads", part="snippet", videoId=video_id, order="relevance",
+                maxResults=limit, textFormat="plainText",
+            )
+        except YouTubeError:
+            return []
+        return [
+            item["snippet"]["topLevelComment"]["snippet"].get("textDisplay", "")
+            for item in data.get("items", [])
+        ]
+
     def search(self, query: str, limit: int = 8) -> list[VideoMeta]:
         data = self._get(
             "search", part="id", q=query, type="video", maxResults=min(limit, 25), safeSearch="strict"

@@ -498,3 +498,28 @@ def test_recommendation_gives_a_study_range(client, course):
     questions = client.get(f"/api/projects/{course}/questions").json()["questions"]
     answered = [q["answer"] for q in questions if q["answer"]]
     assert all("end_s" in answer for answer in answered)
+
+
+def test_comment_sentiment_feeds_the_ranking(client, youtube, db):
+    from app.models import Video
+    from app.services.fuzzy import QualityInputs, comment_sentiment, quality_score
+
+    youtube.comments = {
+        "osBankers08": ["Finally understood it, thank you!", "So clear and helpful"],
+        "rvDeadlock1": ["Confusing and wrong in places", "bad audio, unclear"],
+    }
+    register(client)
+    make_course(client)
+    by_id = {v.youtube_id: v for v in db.query(Video)}
+    assert by_id["osBankers08"].comment_sentiment > 0.5
+    assert by_id["rvDeadlock1"].comment_sentiment < -0.5
+    assert by_id["osIntro0001"].comment_sentiment is None  # no comments: no signal
+
+    assert comment_sentiment(["meh"]) is None
+    base = QualityInputs(duration_s=900, view_count=100_000, like_count=3_000)
+    praised = QualityInputs(900, 100_000, 3_000, comment_sentiment=0.8)
+    panned = QualityInputs(900, 100_000, 3_000, comment_sentiment=-0.8)
+    assert quality_score(panned) < quality_score(base) < quality_score(praised)
+    fresh = QualityInputs(900, 100_000, 3_000, age_years=1)
+    ancient = QualityInputs(900, 100_000, 3_000, age_years=15)
+    assert quality_score(ancient) < quality_score(fresh)

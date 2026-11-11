@@ -129,6 +129,8 @@ class Video(Base):
     view_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     like_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     comment_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Lexicon sentiment of top viewer comments, -1..1; only with the Data API.
+    comment_sentiment: Mapped[float | None] = mapped_column(Float, nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     thumbnail_url: Mapped[str] = mapped_column(String(500), default="")
     playlist_position: Mapped[int] = mapped_column(Integer, default=0)

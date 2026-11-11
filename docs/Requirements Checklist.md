@@ -56,8 +56,8 @@ Last checked: 2026-11-11.
 | Topics as a graph, path covering all nodes in order | Done | Viterbi over topics in order, one chosen video per topic |
 | Mine frequent topic transitions ("Topic Y follows Topic X") | Not built | A single course has no corpus of syllabi, but the playlists' own video order is a teacher's ordering and can be mined for transitions. |
 | Chain videos whose transcripts lead into each other | Not built | Add a sequencing bonus when the end of one pick is similar in content to the start of the next. |
-| Fuzzy ranking: relevance with duration, views, recency, ratings | Partial | `services/fuzzy.py` uses duration, views, likes. Recency and comment volume are stored but unused. |
-| Fuzzy ranking: comment sentiment | Not built | Needs comment text: one extra request per video (Data API `commentThreads`). |
+| Fuzzy ranking: relevance with duration, views, recency, ratings | Done | `services/fuzzy.py`: duration, views, likes (ratings), upload age, comments per thousand views. Tested. |
+| Fuzzy ranking: comment sentiment | Done (with the Data API) | Top 30 comments per video via `commentThreads` (one request), scored with a study-specific lexicon (`comment_sentiment()`), stored as `videos.comment_sentiment` (migration `0003`). Runs only when `YOUTUBE_API_KEY` is set, because scraping comments is the request pattern YouTube blocks. Tested with a fake client. |
 | Fuzzy ranking: watch time | Not possible | YouTube does not publish watch time for other people's videos; no API returns it. Likes per view is the nearest public signal. |
 | Pick the top video per topic, with alternatives | Done | Primary plus up to 3 alternates per topic |
 | Flag topics with no video ("No recommended video for Topic X") | Done | "Video not found for ..."; checked in the browser |

@@ -43,6 +43,9 @@ class VideoInfo:
     duration_s: int
     view_count: int | None
     like_count: int | None
+    comment_count: int | None
+    published_at: object | None  # datetime
+    comment_sentiment: float | None
     has_transcript: bool
     english: bool  # False when the transcript is in another language (not translated)
 
@@ -192,6 +195,9 @@ def get_index(db: Session, project_id: int, embedder: Embedder) -> ProjectIndex:
                     duration_s=video.duration_s,
                     view_count=video.view_count,
                     like_count=video.like_count,
+                    comment_count=video.comment_count,
+                    published_at=video.published_at,
+                    comment_sentiment=video.comment_sentiment,
                     has_transcript=video.transcript_status == "ok",
                     english=video.transcript_status != "ok"
                     or video.transcript_language.lower().startswith("en")

@@ -47,6 +47,9 @@ class QualityInputs:
     view_count: int | None = None
     like_count: int | None = None
     has_transcript: bool = True
+    age_years: float | None = None  # time since upload
+    comment_count: int | None = None
+    comment_sentiment: float | None = None  # -1 (negative) .. 1 (positive)
 
 
 def quality_score(q: QualityInputs) -> float:
@@ -92,6 +95,28 @@ def quality_score(q: QualityInputs) -> float:
             (trapezoid(like_pct, 2.5, 4.5, 100, 100), 0.90),
         ]
 
+    if q.age_years is not None:
+        # Teaching does not go stale quickly; recency is a gentle nudge only.
+        rules += [
+            (trapezoid(q.age_years, 0, 0, 3, 6), 0.72),
+            (trapezoid(q.age_years, 5, 12, 1e9, 1e9), 0.55),
+        ]
+
+    if q.comment_count is not None and q.view_count:
+        per_thousand = 1000.0 * q.comment_count / q.view_count
+        rules += [
+            (trapezoid(per_thousand, 0, 0, 0.2, 0.8), 0.45),  # few people discuss it
+            (triangle(per_thousand, 0.4, 2.0, 6.0), 0.70),
+            (trapezoid(per_thousand, 3.0, 8.0, 1e9, 1e9), 0.80),  # lively discussion
+        ]
+
+    if q.comment_sentiment is not None:
+        rules += [
+            (trapezoid(q.comment_sentiment, -1, -1, -0.3, 0.05), 0.25),  # viewers complain
+            (triangle(q.comment_sentiment, -0.1, 0.15, 0.4), 0.60),
+            (trapezoid(q.comment_sentiment, 0.2, 0.5, 1, 1), 0.88),  # viewers say it helped
+        ]
+
     score = _weighted(rules, default=0.5)
     if not q.has_transcript:
         score *= 0.9  # matched on title/description only: slightly less certain
@@ -112,3 +137,30 @@ def final_score(relevance: float, quality: float) -> float:
     relevance = max(0.0, min(1.0, relevance))
     quality = max(0.0, min(1.0, quality))
     return relevance * (1.0 - QUALITY_WEIGHT * (1.0 - quality))
+
+
+_POSITIVE = frozenset(
+    ["thank", "thanks", "thankyou", "helpful", "helped", "clear", "clearly", "best", "great", "awesome", "amazing", "excellent", "understood", "understand", "easy", "easily", "perfect", "love", "loved", "nice", "good", "brilliant", "superb", "wonderful", "saved", "lifesaver", "crisp", "concise", "simple", "simply", "finally", "useful", "informative"]
+)
+_NEGATIVE = frozenset(
+    ["confusing", "confused", "wrong", "bad", "useless", "boring", "mistake", "mistakes", "error", "errors", "worst", "unclear", "incorrect", "misleading", "waste", "hard", "difficult", "poor", "terrible", "slow", "fast", "noisy", "lagging"]
+)
+
+
+def comment_sentiment(comments: list[str]) -> float | None:
+    """Average lexicon sentiment of viewer comments, -1..1; None with no signal.
+
+    A small hand-made lexicon of how students praise or criticise a lecture
+    ("finally understood", "confusing"). Enough to separate well-received videos
+    from ones viewers complain about, which is all the ranking needs.
+    """
+    import re
+
+    scores = []
+    for comment in comments:
+        words = re.findall(r"[a-z]+", comment.lower())
+        positive = sum(w in _POSITIVE for w in words)
+        negative = sum(w in _NEGATIVE for w in words)
+        if positive + negative:
+            scores.append((positive - negative) / (positive + negative))
+    return round(sum(scores) / len(scores), 3) if scores else None

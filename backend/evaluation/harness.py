@@ -41,6 +41,7 @@ class LabelledYouTube:
         }
         self.search_results: list[VideoMeta] = []
         self.blocked: set[str] = set()  # video ids whose transcript request is refused
+        self.comments: dict[str, list[str]] = {}  # video id -> top comments
         self.calls: list[tuple[str, str]] = []
 
     def _meta(self, playlist: LabelledPlaylist, video: LabelledVideo, *, full: bool) -> VideoMeta:
@@ -88,6 +89,10 @@ class LabelledYouTube:
                 for i, sentence in enumerate(sentences)
             ],
         )
+
+    def fetch_comments(self, video_id: str) -> list[str]:
+        self.calls.append(("comments", video_id))
+        return self.comments.get(video_id, [])
 
     def search(self, query: str, limit: int = 8) -> list[VideoMeta]:
         self.calls.append(("search", query))

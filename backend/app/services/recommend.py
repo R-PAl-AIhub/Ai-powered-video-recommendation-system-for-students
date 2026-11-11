@@ -407,6 +407,16 @@ def _rank_score(
 # ---------------------------------------------------------------- recommendations
 
 
+def _age_years(published) -> float | None:
+    if published is None:
+        return None
+    from datetime import UTC, datetime
+
+    if published.tzinfo is None:  # SQLite returns naive datetimes
+        published = published.replace(tzinfo=UTC)
+    return max(0.0, (datetime.now(UTC) - published).days / 365.25)
+
+
 def _reasons(match: Match, has_transcript: bool) -> list[str]:
     if not has_transcript:
         return ["No captions on this video, so it was matched on its title and description"]
@@ -464,7 +474,15 @@ def rebuild_recommendations(db: Session, project: Project) -> dict[str, int]:
     playlist_rank = {playlist.id: rank for rank, playlist in enumerate(project.playlists)}
     quality = [
         quality_score(
-            QualityInputs(v.duration_s, v.view_count, v.like_count, v.has_transcript)
+            QualityInputs(
+                v.duration_s,
+                v.view_count,
+                v.like_count,
+                v.has_transcript,
+                age_years=_age_years(v.published_at),
+                comment_count=v.comment_count,
+                comment_sentiment=v.comment_sentiment,
+            )
         )
         for v in index.videos
     ]
