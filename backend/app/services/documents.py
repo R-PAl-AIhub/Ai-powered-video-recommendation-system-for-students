@@ -29,11 +29,24 @@ class DocumentError(Exception):
 
 
 @dataclass
+class Unit:
+    """A piece of a document as it was laid out: a PDF page, or a section under a
+    heading. Study material is cut into passages along these, so a passage can
+    say which page it is on."""
+
+    text: str
+    page: int = 0  # 1-based PDF page; 0 = the format has no pages
+    page_label: str = ""  # the number printed on the page, when the PDF defines one
+    heading: str = ""
+
+
+@dataclass
 class Extracted:
     text: str
     page_count: int = 1
     ocr_pages: int = 0
     warnings: list[str] = field(default_factory=list)
+    units: list[Unit] = field(default_factory=list)
 
 
 def sniff_kind(data: bytes, filename: str) -> str:
@@ -152,7 +165,10 @@ def _extract_pdf(data: bytes) -> Extracted:
     result = Extracted(text="", page_count=len(pdf))
     parts: list[str] = []
     try:
+        headings = _pdf_outline(pdf)
+        current_heading = ""
         for number in range(min(len(pdf), MAX_PDF_PAGES)):
+            current_heading = headings.get(number, current_heading)
             page = pdf[number]
             textpage = page.get_textpage()
             text = textpage.get_text_range() or ""
@@ -166,12 +182,43 @@ def _extract_pdf(data: bytes) -> Extracted:
                     text = ocr_text
             page.close()
             parts.append(text)
+            try:
+                label = (pdf.get_page_label(number) or "").strip()[:40]
+            except Exception:
+                label = ""
+            result.units.append(
+                Unit(
+                    text=clean_text(text),
+                    page=number + 1,
+                    page_label=label if label != str(number + 1) else "",
+                    heading=current_heading,
+                )
+            )
         if len(pdf) > MAX_PDF_PAGES:
             result.warnings.append(f"Only the first {MAX_PDF_PAGES} pages were read.")
     finally:
         pdf.close()
     result.text = clean_text("\n\n".join(parts))
     return result
+
+
+def _pdf_outline(pdf) -> dict[int, str]:
+    """The deepest bookmark title starting on each page (0-based), from the PDF's
+    table of contents. Empty when the PDF has none."""
+    found: dict[int, tuple[int, str]] = {}
+    try:
+        for bookmark in pdf.get_toc(max_depth=4):
+            dest = bookmark.get_dest()
+            index = dest.get_index() if dest is not None else None
+            title = " ".join((bookmark.get_title() or "").split())[:300]
+            if index is None or index < 0 or not title:
+                continue
+            level = getattr(bookmark, "level", 0)
+            if index not in found or level >= found[index][0]:
+                found[index] = (level, title)
+    except Exception:  # a damaged outline is not worth failing the document for
+        return {}
+    return {index: title for index, (_, title) in found.items()}
 
 
 def _extract_docx(data: bytes) -> Extracted:
@@ -182,12 +229,25 @@ def _extract_docx(data: bytes) -> Extracted:
     except Exception as exc:
         raise DocumentError("This Word document could not be opened.") from exc
     parts = [p.text for p in document.paragraphs]
+    # Sections follow Word's own heading styles ("Heading 1", "Title", ...).
+    units: list[Unit] = []
+    heading, body = "", []
+    for paragraph in document.paragraphs:
+        style = (paragraph.style.name if paragraph.style is not None else "").lower()
+        if (style.startswith("heading") or style == "title") and paragraph.text.strip():
+            if body:
+                units.append(Unit(text=clean_text("\n".join(body)), heading=heading))
+            heading, body = " ".join(paragraph.text.split())[:300], []
+        else:
+            body.append(paragraph.text)
+    if body:
+        units.append(Unit(text=clean_text("\n".join(body)), heading=heading))
     for table in document.tables:
         for row in table.rows:
             cells = [c.text.strip() for c in row.cells if c.text.strip()]
             if cells:
                 parts.append(" | ".join(dict.fromkeys(cells)))  # merged cells repeat
-    return Extracted(text=clean_text("\n".join(parts)))
+    return Extracted(text=clean_text("\n".join(parts)), units=units)
 
 
 def _extract_image(data: bytes) -> Extracted:
@@ -222,4 +282,136 @@ def extract(data: bytes, filename: str) -> Extracted:
     result = extractor(data)
     if not result.text and not result.warnings:
         result.warnings.append("No readable text was found in this file.")
+    if not result.units and result.text:
+        result.units = [Unit(text=result.text)]
     return result
+
+
+# ---------------------------------------------------------------------- web pages
+
+_SKIP_TAGS = frozenset(
+    ["script", "style", "noscript", "template", "svg", "nav", "footer", "header", "aside", "form", "button", "iframe", "select", "figure"]
+)
+_HEADING_TAGS = frozenset(["h1", "h2", "h3", "h4"])
+_BLOCK_TAGS = frozenset(
+    ["p", "div", "li", "br", "tr", "section", "article", "main", "pre", "blockquote", "dd", "dt", "table", "ul", "ol", "h5", "h6"]
+)
+_VOID_TAGS = frozenset(
+    ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]
+)
+
+
+def extract_html(markup: str) -> tuple[str, Extracted]:
+    """Readable text of a web page, cut into sections at its headings.
+
+    Navigation, headers, footers, scripts and forms are dropped. When the page
+    marks its content with <main> or <article>, only that part is kept, which
+    removes the sidebars of most article and wiki pages. Returns the page title
+    and the extracted text.
+    """
+    from html.parser import HTMLParser
+
+    class Reader(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.title = ""
+            self.in_title = False
+            # The element being skipped (nav, script, ...) and how deeply that same
+            # tag is nested inside itself. Only its own tag name is counted, so
+            # unclosed <li> or <p> inside it cannot leave the reader stuck.
+            self.skip_tag = ""
+            self.skip = 0
+            self.main_depth = 0  # depth inside <main>/<article>
+            self.saw_main = False
+            self.heading: list[str] | None = None
+            # (heading, lines, inside main) per section, in page order
+            self.sections: list[tuple[str, list[str], bool]] = [("", [], False)]
+            self.line: list[str] = []
+
+        def _flush_line(self) -> None:
+            text = " ".join("".join(self.line).split())
+            self.line = []
+            if text:
+                self.sections[-1][1].append(text)
+
+        def handle_starttag(self, tag, attrs):
+            if tag in _VOID_TAGS:
+                if tag == "br":
+                    self._flush_line()
+                return
+            if tag == "title":
+                self.in_title = True
+            if self.skip:
+                if tag == self.skip_tag:
+                    self.skip += 1
+                return
+            role = dict(attrs).get("role", "") or ""
+            if tag in _SKIP_TAGS or role in ("navigation", "banner", "contentinfo", "complementary"):
+                self.skip_tag, self.skip = tag, 1
+                return
+            if tag in ("main", "article"):
+                self.main_depth += 1
+                self.saw_main = True
+            if tag in _HEADING_TAGS:
+                self._flush_line()
+                self.heading = []
+            elif tag in _BLOCK_TAGS:
+                self._flush_line()
+
+        def handle_endtag(self, tag):
+            if tag in _VOID_TAGS:
+                return
+            if tag == "title":
+                self.in_title = False
+            if self.skip:
+                if tag == self.skip_tag:
+                    self.skip -= 1
+                return
+            if tag in ("main", "article") and self.main_depth:
+                self.main_depth -= 1
+            if tag in _HEADING_TAGS and self.heading is not None:
+                heading = " ".join("".join(self.heading).split())[:300]
+                self.heading = None
+                if heading:
+                    self.sections.append((heading, [], self.main_depth > 0))
+            elif tag in _BLOCK_TAGS:
+                self._flush_line()
+
+        def handle_data(self, data):
+            if self.in_title:
+                self.title += data
+                return
+            if self.skip:
+                return
+            if self.heading is not None:
+                self.heading.append(data)
+            else:
+                if not self.sections[-1][1] and not self.line:
+                    # First text of a section: record whether it is in the main content.
+                    heading, lines, _ = self.sections[-1]
+                    self.sections[-1] = (heading, lines, self.main_depth > 0)
+                self.line.append(data)
+
+    reader = Reader()
+    try:
+        reader.feed(markup)
+        reader.close()
+    except Exception as exc:  # html.parser is lenient; this is a last resort
+        raise DocumentError("This web page could not be read.") from exc
+    reader._flush_line()
+
+    sections = [s for s in reader.sections if s[1]]
+    if reader.saw_main and any(inside for _, _, inside in sections):
+        sections = [s for s in sections if s[2]]
+    units = []
+    for heading, lines, _ in sections:
+        # Drop stray short lines (buttons, captions, "Edit" links) between paragraphs.
+        kept = [line for line in lines if len(line) >= 30 or line.endswith((".", ":", "?"))]
+        text = clean_text("\n".join(kept))
+        if text:
+            units.append(Unit(text=text, heading=heading))
+    title = " ".join(reader.title.split())[:200]
+    result = Extracted(text=clean_text("\n\n".join(u.text for u in units)), units=units)
+    if not result.text:
+        result.warnings.append("No readable text was found on this web page.")
+    return title, result

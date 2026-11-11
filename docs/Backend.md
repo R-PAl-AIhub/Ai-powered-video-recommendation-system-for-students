@@ -31,6 +31,12 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 - `GET|POST /projects`, `GET|PATCH|DELETE /projects/{id}`
 - `POST /projects/{id}/playlists`, `DELETE /projects/{id}/playlists/{pid}`
 - `POST /projects/{id}/documents` (file), `POST /projects/{id}/documents/text`, `DELETE /projects/{id}/documents/{did}`
+  (kinds: `syllabus`, `exam`, `notes`, `reading`; `reading` is study material that is
+  recommended per topic but never creates topics)
+- `POST /projects/{id}/documents/url` `{url}`: a web page or a PDF on the web as study
+  material. The address is checked at once (public internet only); the page is read at
+  the next analysis. Topics in `GET /path` carry `readings` (document, pages, heading,
+  snippet, deep link) and `stats.gaps_with_reading`.
 - `POST /projects/{id}/process`, `GET /projects/{id}/job`
 - `GET /projects/{id}/path`, `GET /projects/{id}/questions`, `GET /projects/{id}/search?q=`
 - `POST|DELETE /projects/{id}/feedback`, `PUT /projects/{id}/videos/{vid}/watched`

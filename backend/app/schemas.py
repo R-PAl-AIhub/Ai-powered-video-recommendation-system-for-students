@@ -7,7 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-DocumentKind = Literal["syllabus", "exam", "notes"]
+# "reading" is study material: a book, an article or a web page.
+DocumentKind = Literal["syllabus", "exam", "notes", "reading"]
 FeedbackKind = Literal["correct", "wrong_topic", "irrelevant", "already_covered"]
 
 
@@ -79,6 +80,12 @@ class DocumentTextIn(BaseModel):
     text: str = Field(min_length=10, max_length=400_000)
 
 
+class DocumentUrlIn(BaseModel):
+    """A web page (or a PDF on the web) added as study material."""
+
+    url: str = Field(min_length=4, max_length=1000)
+
+
 class DocumentOut(Model):
     id: int
     kind: str
@@ -90,6 +97,8 @@ class DocumentOut(Model):
     ocr_pages: int
     characters: int = 0
     preview: str = ""
+    source_url: str = ""
+    passages: int = 0  # sections the material was cut into for matching
 
 
 class JobOut(Model):
@@ -181,6 +190,21 @@ class RecommendationOut(BaseModel):
     uncovered: list[str] = []  # parts of the topic no video teaches
 
 
+class ReadingOut(BaseModel):
+    """Where in the student's study material a topic is explained."""
+
+    document_id: int
+    document: str  # title or file name
+    kind: str  # reading | notes
+    relevance: float
+    page_start: int  # 0 when the material has no pages
+    page_end: int
+    page_label: str  # printed page number of page_start, when the PDF defines one
+    heading: str
+    snippet: str
+    url: str  # opens the material at this place; "" for uploaded files
+
+
 class TopicOut(BaseModel):
     id: int
     name: str
@@ -195,6 +219,7 @@ class TopicOut(BaseModel):
     importance: float  # 0..1: how much this topic matters for the exam
     primary: RecommendationOut | None = None
     alternates: list[RecommendationOut] = []
+    readings: list[ReadingOut] = []  # study material for this topic, best first
 
 
 class PathStats(BaseModel):
@@ -202,6 +227,7 @@ class PathStats(BaseModel):
     matched: int
     gaps: int
     covered: int
+    gaps_with_reading: int = 0  # gaps the student's material explains
     videos: int
     watched: int
     total_seconds: int

@@ -174,8 +174,11 @@ class Document(Base):
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
-    kind: Mapped[str] = mapped_column(String(12))  # syllabus|exam|notes
+    # syllabus|exam|notes|reading — "reading" is study material (a book, an article,
+    # a web page): never used to find topics, only recommended for them.
+    kind: Mapped[str] = mapped_column(String(12))
     filename: Mapped[str] = mapped_column(String(300))
+    source_url: Mapped[str] = mapped_column(String(1000), default="")  # web pages only
     content_type: Mapped[str] = mapped_column(String(120), default="")
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     storage_name: Mapped[str] = mapped_column(String(80), default="")  # "" for pasted text
@@ -187,6 +190,58 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     project: Mapped[Project] = relationship(back_populates="documents")
+    passages: Mapped[list[DocumentPassage]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", order_by="DocumentPassage.idx"
+    )
+
+
+class DocumentPassage(Base):
+    """A section of study material (reading or notes), small enough to match one
+    topic, with the page it is on so the student can be sent straight there."""
+
+    __tablename__ = "document_passages"
+    __table_args__ = (Index("ix_passage_document_idx", "document_id", "idx"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    idx: Mapped[int] = mapped_column(Integer)
+    page_start: Mapped[int] = mapped_column(Integer, default=0)  # 1-based PDF page; 0 = none
+    page_end: Mapped[int] = mapped_column(Integer, default=0)
+    page_label: Mapped[str] = mapped_column(String(40), default="")  # printed number, if any
+    heading: Mapped[str] = mapped_column(String(300), default="")
+    text: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    embedded_with: Mapped[str] = mapped_column(String(120), default="")
+
+    document: Mapped[Document] = relationship(back_populates="passages")
+
+
+class Reading(Base):
+    """Where in the student's study material a topic is explained."""
+
+    __tablename__ = "readings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), index=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    rank: Mapped[int] = mapped_column(Integer, default=0)
+    relevance: Mapped[float] = mapped_column(Float, default=0.0)
+    first_idx: Mapped[int] = mapped_column(Integer, default=0)  # passages to read, inclusive
+    last_idx: Mapped[int] = mapped_column(Integer, default=0)
+    page_start: Mapped[int] = mapped_column(Integer, default=0)
+    page_end: Mapped[int] = mapped_column(Integer, default=0)
+    page_label: Mapped[str] = mapped_column(String(40), default="")
+    heading: Mapped[str] = mapped_column(String(300), default="")
+    snippet: Mapped[str] = mapped_column(Text, default="")
+
+    document: Mapped[Document] = relationship()
 
 
 class Topic(Base):
@@ -211,6 +266,9 @@ class Topic(Base):
     project: Mapped[Project] = relationship(back_populates="topics")
     recommendations: Mapped[list[Recommendation]] = relationship(
         back_populates="topic", cascade="all, delete-orphan", order_by="Recommendation.rank"
+    )
+    readings: Mapped[list[Reading]] = relationship(
+        cascade="all, delete-orphan", order_by="Reading.rank"
     )
 
 

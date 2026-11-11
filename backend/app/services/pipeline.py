@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import Document, Playlist, Project, Topic, Video, VideoChunk, utcnow
 from . import documents as documents_service
+from . import readings as readings_service
 from .asr import get_transcriber
 from .embeddings import get_embedder, to_blob
 from .fuzzy import comment_sentiment
@@ -367,7 +368,13 @@ def read_documents(db: Session, project: Project, report: Progress, warnings: li
         report("documents", number / len(pending), f"Reading {document.filename}")
         path = settings.upload_dir / document.storage_name
         try:
-            extracted = documents_service.extract(path.read_bytes(), document.filename)
+            if document.source_url:
+                title, extracted = readings_service.fetch_page(document.source_url)
+                document.filename = title[:300] or document.filename
+                if extracted.units and any(u.page for u in extracted.units):
+                    document.content_type = "application/pdf"
+            else:
+                extracted = documents_service.extract(path.read_bytes(), document.filename)
         except documents_service.DocumentError as exc:
             document.status, document.error = "error", str(exc)
             warnings.append(f"{document.filename}: {exc}")
@@ -387,8 +394,12 @@ def read_documents(db: Session, project: Project, report: Progress, warnings: li
             document.status = "ready" if extracted.text else "error"
             document.error = "" if extracted.text else "; ".join(extracted.warnings)
             warnings.extend(f"{document.filename}: {w}" for w in extracted.warnings)
+            if document.status == "ready":
+                # Study material keeps its layout: passages know their page.
+                readings_service.set_passages(document, extracted)
             # The text now lives in the database; the upload itself is not kept.
-            path.unlink(missing_ok=True)
+            if document.storage_name:
+                path.unlink(missing_ok=True)
             document.storage_name = ""
         db.commit()
 
@@ -595,6 +606,9 @@ def run_pipeline(
 
     stage_report("embedding", 0, "Analysing video content")
     embed_videos(db, project, stage_report)
+    stage_report("embedding", 1, "Analysing your study material")
+    readings_service.prepare_passages(db, project)
+    db.commit()
 
     stage_report("matching", 0, "Matching topics to videos")
     ensure_topic_vectors(db, project, get_embedder(), force=True)
@@ -610,10 +624,14 @@ def run_pipeline(
     rebuild_recommendations(db, project)
     stage_report("matching", 0.6, "Linking past exam questions to videos")
     link_questions(db, project)
+    stage_report("matching", 0.8, "Finding the pages to read for each topic")
+    readings_service.match_readings(db, project)
     project.processed_at = utcnow()
     db.commit()
 
-    if not db.scalar(select(Video.id).where(Video.project_id == project.id).limit(1)):
+    if not db.scalar(select(Video.id).where(Video.project_id == project.id).limit(1)) and not any(
+        d.kind == "reading" for d in project.documents
+    ):
         warnings.append("No videos were found. Add a YouTube playlist to get recommendations.")
     return PipelineResult(warnings=list(dict.fromkeys(warnings)), blocked_videos=blocked)
 

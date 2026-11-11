@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..db import get_db
 from ..deps import current_user, idle_project, owned_project
-from ..models import Document, Playlist, Project, User, Video, utcnow
+from ..models import Document, Playlist, Project, Reading, User, Video, utcnow
 from ..schemas import (
     DocumentKind,
     DocumentOut,
     DocumentTextIn,
+    DocumentUrlIn,
     JobOut,
     PlaylistIn,
     PlaylistOut,
@@ -30,6 +32,7 @@ from ..services import jobs
 from ..services.documents import ALLOWED_EXTENSIONS, DocumentError, clean_text, sniff_kind
 from ..services.matching import invalidate_index
 from ..services.path import document_out, job_out, project_detail, project_summary
+from ..services.readings import UnsafeURL, normalise_url, public_address
 from ..services.recommend import rebuild_recommendations
 from ..services.youtube import parse_playlist_id
 
@@ -219,10 +222,12 @@ async def upload_document(
 def add_text_document(
     body: DocumentTextIn, project: Project = Depends(idle_project), db: Session = Depends(get_db)
 ):
-    """Paste a syllabus (or notes / questions) as plain text instead of uploading a file."""
+    """Paste a syllabus (or notes / questions / study material) as plain text."""
     _check_document_quota(project)
     text = clean_text(body.text)
     title = " ".join(body.title.split()) or f"Pasted {body.kind}"
+    if not text:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The text is empty")
     document = Document(
         project_id=project.id,
         kind=body.kind,
@@ -239,6 +244,39 @@ def add_text_document(
     return document_out(document)
 
 
+@router.post(
+    "/{project_id}/documents/url", response_model=DocumentOut, status_code=status.HTTP_201_CREATED
+)
+def add_web_page(
+    body: DocumentUrlIn, project: Project = Depends(idle_project), db: Session = Depends(get_db)
+):
+    """Add a web page (an article, a wiki page, a PDF on the web) as study material.
+
+    The address is checked now (it must be a public web page); the page itself is
+    read during the next analysis.
+    """
+    _check_document_quota(project)
+    try:
+        url = normalise_url(body.url)
+        parts = urlsplit(url)
+        public_address(parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80))
+    except UnsafeURL as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+    if any(d.source_url == url for d in project.documents):
+        raise HTTPException(status.HTTP_409_CONFLICT, "This page is already in the project")
+    document = Document(
+        project_id=project.id,
+        kind="reading",
+        filename=(parts.hostname or "") + (parts.path if parts.path != "/" else ""),
+        content_type="text/html",
+        source_url=url,
+    )
+    db.add(document)
+    _touch_sources(project)
+    db.commit()
+    return document_out(document)
+
+
 @router.delete("/{project_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_document(
     document_id: int, project: Project = Depends(idle_project), db: Session = Depends(get_db)
@@ -248,6 +286,7 @@ def remove_document(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
     if document.storage_name:
         (get_settings().upload_dir / document.storage_name).unlink(missing_ok=True)
+    db.execute(delete(Reading).where(Reading.document_id == document.id))
     db.delete(document)
     _touch_sources(project)
     db.commit()

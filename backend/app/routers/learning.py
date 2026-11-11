@@ -28,6 +28,7 @@ from ..schemas import (
 from ..services.matching import Match
 from ..services.path import build_path, build_questions, video_out, video_url
 from ..services.pipeline import ingest_single_video
+from ..services.readings import match_readings, prepare_passages
 from ..services.recommend import (
     playlist_topic_order,
     rebuild_recommendations,
@@ -55,11 +56,18 @@ def _video(db: Session, project: Project, video_id: int) -> Video:
     return video
 
 
-def _refresh(db: Session, project: Project) -> PathOut:
-    """Recompute recommendations after a change and return the new path."""
+def _refresh(db: Session, project: Project, *, readings: bool = False) -> PathOut:
+    """Recompute recommendations after a change and return the new path.
+
+    Readings depend only on the topics, not on video feedback, so they are
+    re-matched only when a topic's wording changes (``readings=True``).
+    """
     db.flush()
     db.refresh(project)
     rebuild_recommendations(db, project)
+    if readings:
+        prepare_passages(db, project)
+        match_readings(db, project)
     db.commit()
     return build_path(db, project)
 
@@ -122,7 +130,7 @@ def add_topic(
     for position, item in enumerate(topics):
         item.position = position
     project.topics_locked = True
-    return _refresh(db, project)
+    return _refresh(db, project, readings=True)
 
 
 @router.patch("/topics/{topic_id}", response_model=PathOut)
@@ -143,7 +151,7 @@ def update_topic(
         project.topics_locked = True
     if body.covered is not None:
         topic.covered = body.covered
-    return _refresh(db, project)
+    return _refresh(db, project, readings=True)
 
 
 @router.delete("/topics/{topic_id}", response_model=PathOut)

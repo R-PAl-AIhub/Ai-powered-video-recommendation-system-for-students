@@ -12,6 +12,7 @@ from ..models import (
     Playlist,
     Project,
     Question,
+    Reading,
     Recommendation,
     Topic,
     Video,
@@ -27,11 +28,13 @@ from ..schemas import (
     QuestionAnswer,
     QuestionOut,
     QuestionsOut,
+    ReadingOut,
     RecommendationOut,
     SegmentOut,
     TopicOut,
     VideoOut,
 )
+from .readings import reading_url
 from .youtube import watch_url
 
 
@@ -122,7 +125,10 @@ def build_path(db: Session, project: Project) -> PathOut:
         select(Topic)
         .where(Topic.project_id == project.id)
         .order_by(Topic.position, Topic.id)
-        .options(selectinload(Topic.recommendations).joinedload(Recommendation.video))
+        .options(
+            selectinload(Topic.recommendations).joinedload(Recommendation.video),
+            selectinload(Topic.readings).joinedload(Reading.document),
+        )
     ).all()
     feedback = {
         (f.topic_id, f.video_id): f.kind
@@ -147,7 +153,7 @@ def build_path(db: Session, project: Project) -> PathOut:
     out: list[TopicOut] = []
     path_videos: dict[int, Video] = {}
     stretches: set[tuple[int, float, float]] = set()  # (video, start, end) to watch
-    matched = gaps = covered = 0
+    matched = gaps = covered = gaps_with_reading = 0
     for topic in topics:
         recommendations = [
             RecommendationOut(
@@ -185,6 +191,23 @@ def build_path(db: Session, project: Project) -> PathOut:
         else:
             status = "gap"
             gaps += 1
+        readings = [
+            ReadingOut(
+                document_id=r.document_id,
+                document=r.document.filename,
+                kind=r.document.kind,
+                relevance=r.relevance,
+                page_start=r.page_start,
+                page_end=r.page_end,
+                page_label=r.page_label,
+                heading=r.heading,
+                snippet=r.snippet,
+                url=reading_url(r.document, r),
+            )
+            for r in topic.readings
+        ]
+        if status == "gap" and readings:
+            gaps_with_reading += 1
         out.append(
             TopicOut(
                 id=topic.id,
@@ -200,6 +223,7 @@ def build_path(db: Session, project: Project) -> PathOut:
                 importance=topic_importance(topic),
                 primary=primary,
                 alternates=recommendations[1:] if primary else [],
+                readings=readings if not topic.covered else [],
             )
         )
 
@@ -220,6 +244,7 @@ def build_path(db: Session, project: Project) -> PathOut:
             matched=matched,
             gaps=gaps,
             covered=covered,
+            gaps_with_reading=gaps_with_reading,
             videos=len(path_videos),
             watched=sum(1 for v in path_videos.values() if v.watched_at is not None),
             total_seconds=total,
@@ -309,6 +334,8 @@ def document_out(document: Document) -> DocumentOut:
         ocr_pages=document.ocr_pages,
         characters=len(document.text),
         preview=document.text[:400],
+        source_url=document.source_url,
+        passages=len(document.passages),
     )
 
 

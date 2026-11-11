@@ -8,13 +8,31 @@ Last updated: 2026-11-11.
 
 ## State in one paragraph
 
-The backend is complete and tested. The frontend is fully written and builds, but
-has not yet been opened in a browser. Deployment files, CI/CD, database migrations
-and the README are not started.
+The backend and frontend are complete, tested and browser-checked, with migrations.
+Study material beyond videos has its backend; its UI, the deployment files, CI/CD,
+the GitHub Pages demo and the README are next (see "Resume here").
 
 ## Resume here
 
-**Next action: study material beyond videos** (owner, 2026-11-11): let the student add books, articles, web pages and notes as study sources, and recommend the right pages or sections per topic alongside the videos, especially for gaps. Then Deployment (to-do item 3) and CI/CD. Every buildable gap in [[Requirements Checklist]] is closed (2026-11-11). Previously: **close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
+**Owner's instruction (2026-11-11): finish, then deploy on GitHub or Vercel, whichever
+is feasible.** Vercel cannot host the backend (see [[Decisions]]); the plan is a static
+demo on GitHub Pages, a Docker image on GHCR and a `render.yaml` for the full stack.
+
+**Next action, in order:**
+
+1. ~~Study material backend~~ (done 2026-11-11, `services/readings.py`, migration 0005).
+2. **Study material UI**: Sources tab gets a "Reading material" upload kind and an
+   "Add a web page" field (`POST /documents/url`); the Path tab shows a "Read:" line
+   per topic (`topic.readings`), and on gap rows the reading becomes the main
+   suggestion ("No video teaches this — read …"). Gap semantics stay: gap = no video.
+3. Deployment files: `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.env.example`.
+4. CI in `.github/workflows/` (push it in its own commit; a credential without the
+   `workflow` scope rejects it).
+5. GitHub Pages demo: `VITE_DEMO` build of the frontend with the real sample data,
+   `base` set only for that build, pushed to `gh-pages`.
+6. README.
+
+Earlier: **study material beyond videos** (owner, 2026-11-11): let the student add books, articles, web pages and notes as study sources, and recommend the right pages or sections per topic alongside the videos, especially for gaps. Every buildable gap in [[Requirements Checklist]] is closed (2026-11-11). Previously: **close every gap in [[Requirements Checklist]]** (owner, 2026-11-11:
 the idea document is the sole source of truth; every point must be built). Then
 Deployment (to-do item 3). Work in this order, updating the checklist row, this
 note and committing after each:
@@ -145,6 +163,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-11 | (this commit) | Study material beyond videos (backend): `reading` documents (files, pasted text, web pages via `POST /documents/url` with SSRF protection), passages with PDF pages and section headings, readings per topic matched like videos (migration 0005). Real check with OSTEP chapters and Wikipedia: 11 of 12 readings on the right section, 8 fill video gaps. 74 tests pass; gate passes. |
 | 2026-11-11 | (this commit) | Topics taught across several stretches: part series, repeated teaching, and set cover of a topic's parts across playlists, with uncovered parts listed (migration 0004). Six worst-case tests; gate checks zero unneeded splits. 55 tests pass. |
 | 2026-11-11 | (this commit) | Whole-video picks say "study the whole video". Browser-checked on the restarted server: ranges in Path, Questions and Search; player opens at the start second; topic map, new label and order button present. |
 | 2026-11-11 | (this commit) | Study ranges tuned on the real playlist (whole video when the title names only this topic; strict start, tolerant end); key-term check fixes "disk scheduling" matching a CPU lecture; ASR also retries caption-less videos; demo data rebuilt; docs brought up to date. 49 tests pass; gate 25/25. |
