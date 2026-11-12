@@ -13,6 +13,7 @@ says so in its log.
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 import threading
 from pathlib import Path
@@ -53,6 +54,59 @@ def _decode(path: Path):
         check=True,
     ).stdout
     return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
+
+SOUND_ALIKE_MIN_LETTERS = 6  # shorter title words are too easily confused
+SOUND_ALIKE_MIN_TIMES = 3  # the mis-heard word must be said this often
+
+
+def _sound(word: str) -> str:
+    """A rough sound key: the first letter, then the consonants, repeats merged
+    ("closure" and "closer" both give "clsr")."""
+    word = word.lower()
+    rest = re.sub(r"[aeiouyhw]", "", word[1:])
+    return word[:1] + re.sub(r"(.)\1+", r"\1", rest)
+
+
+def restore_title_terms(texts: list[str], title: str) -> list[str]:
+    """Put back a term of the lecture's title that speech recognition wrote as a
+    sound-alike word.
+
+    Whisper heard a Hindi lecture titled "Finding Closure of Functional
+    dependency" as "closer method", "the closer of A" 28 times and never as
+    "closure", so the topic "Closure of a set of attributes" found no video. The
+    rule is narrow on purpose: a title word of six letters or more that is never
+    heard, while one other word with the same sound key and nearly the same
+    length is heard at least three times, replaces that word.
+    """
+    said = " ".join(texts).lower()
+    counts: dict[str, int] = {}
+    for word in re.findall(r"[a-z]+", said):
+        counts[word] = counts.get(word, 0) + 1
+    swaps: dict[str, str] = {}
+    for term in dict.fromkeys(re.findall(r"[a-z]+", title.lower())):
+        if len(term) < SOUND_ALIKE_MIN_LETTERS or term in counts:
+            continue
+        alike = [
+            word
+            for word, times in counts.items()
+            if times >= SOUND_ALIKE_MIN_TIMES
+            and abs(len(word) - len(term)) <= 2
+            and len(_sound(word)) >= 4
+            and _sound(word) == _sound(term)
+        ]
+        if len(alike) == 1:  # two candidates: leave it alone
+            swaps[alike[0]] = term
+    if not swaps:
+        return texts
+
+    def swap(match: re.Match) -> str:
+        word = match.group(0)
+        new = swaps[word.lower()]
+        return new.capitalize() if word[:1].isupper() else new
+
+    pattern = re.compile(r"\b(?:" + "|".join(map(re.escape, swaps)) + r")\b", re.IGNORECASE)
+    return [pattern.sub(swap, text) for text in texts]
 
 
 class WhisperTranscriber:
@@ -123,6 +177,11 @@ class WhisperTranscriber:
                 ]
         if not parts:
             return None
+        if hint:
+            for part, text in zip(
+                parts, restore_title_terms([p.text for p in parts], hint), strict=True
+            ):
+                part.text = text
         language = info.language or ""
         if translate and language and not language.startswith("en"):
             language = f"{language}→en"

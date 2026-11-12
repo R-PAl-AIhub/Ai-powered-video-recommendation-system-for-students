@@ -82,45 +82,31 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    unchanged (6 of 8 answered). The fallback has its own tests since 2026-11-12
    (`tests/test_question_fallback.py`: answered where the topic is taught, left
    unanswered when the topic is a gap, a direct answer is kept).
-4. [~] More real playlists. Done: a database-systems playlist (see [[Matching
-   Pipeline]], "Results"), judged against the transcripts, not the titles. Its
-   transcripts are kept in `backend/data/live-dbms.db` (not in git).
-   **Playlist taught in another language: in progress (2026-11-12).** The owner
-   made clear what "non-English" means: the teacher may speak any language and the
-   transcript may be in any language; the transcript is what gets matched.
-   Playlist: `PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW` (Gate Smashers, normalization,
-   15 lectures spoken in Hindi). It is a good mix: 10 lectures have human English
-   captions, 1 has captions only in Hindi script (lecture 35), 3 have no captions
-   (36, 37, 38), and 1 has an English track whose transcript panel would not load
-   (26).
-   YouTube refused every caption download from this PC all day (HTTP 429, through
-   youtube-transcript-api, yt-dlp, the owner's suggested npm library
-   `youtube-caption-extractor`, and a plain request from the browser). What works:
-   - The on-screen transcript ("Show transcript") in the owner's Chrome, driven
-     through the Claude in Chrome extension. 11 transcripts were copied that way
-     into `backend/data/hi-captions/<video id>.txt` (not in git).
-   - Audio download, so the video can be listened to (Whisper). `tiny` mis-hears
-     the terms; `small` is right ("first normal form") and took about 6 minutes
-     for an 8.5-minute lecture including a one-time 460 MB model download.
-   Built because of this (all tested, see the checkpoint log): listening when
-   captions are refused or unreadable; `PUT /videos/{vid}/transcript` and
-   `GET /videos/untranscribed`; "Paste its transcript" on the Path and Sources
-   screens; `--transcripts` in `evaluation/live.py`.
-   **Still to do:** the run
-   `ASR_ENABLED=true ASR_MODEL=small python -m evaluation.live --name hi-dbms
+4. [x] More real playlists (2026-11-12). A database-systems playlist in English
+   and a 15-lecture playlist taught in Hindi (`PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW`,
+   Gate Smashers, normalization), both judged against the transcripts, not the
+   titles; see [[Matching Pipeline]], "Results". The owner's meaning of
+   "non-English": the teacher may speak any language and the transcript may be in
+   any language; the transcript is what gets matched.
+   Hindi playlist: YouTube refused every caption download from this PC (HTTP 429,
+   by every tool), so 10 lectures use the English captions copied from "Show
+   transcript" in the owner's Chrome (`backend/data/hi-captions/`, not in git) and
+   5 lectures (26, 35, 36, 37, 38) were heard by Whisper `small` on this PC and
+   translated to English (91 minutes of audio in 36 minutes). Result: 15 of 21
+   topics matched, all 15 on a lecture that teaches the topic, 4 of them starting
+   late; 6 gaps, 5 right and 1 wrong ("Need for normalization"). Three errors
+   found by the check were fixed with tests: the "sure first stage" rule, the
+   sound-alike correction of heard title terms ("closer" to "closure"), and the
+   full title bonus for a title that names the whole topic. The other two real
+   courses are unchanged by the fixes. Cache: `backend/data/live-hi-dbms.db`,
+   output: `backend/data/live-hi-dbms.log` (not in git). To repeat:
+   `PYTHONIOENCODING=utf-8 .venv/Scripts/python -m evaluation.live --name hi-dbms
    --subject "Database Management Systems" --playlist <link>
    --syllabus evaluation/samples/dbms_normalization_syllabus.txt
-   --transcripts data/hi-captions --raw` (output in `backend/data/live-hi-dbms.log`,
-   cache in `backend/data/live-hi-dbms.db`) was started at 10:15, died at about
-   10:35 with nothing heard (the session that started it ended), and was started
-   again at 14:20. It listens to 5 lectures (26, 35, 36, 37, 38: about 90 minutes
-   of audio). When it ends: judge each match against the
-   transcripts, write the result into [[Matching Pipeline]] "Results", and mark
-   this item done. If it was interrupted, run the same command again: finished
-   lectures are cached.
+   --transcripts data/hi-captions --raw` in `backend/`.
    Not possible and not built: calling YouTube's transcript-panel service from a
-   script (it has to pose as a browser; the safety system here refuses that as
-   bot-check circumvention, and it is not something to ship).
+   script (it has to pose as a browser; refused here as bot-check circumvention,
+   and it is not something to ship).
 5. [x] Live demo clicked through in a browser (2026-11-12), on the real address
    after it came back: a deep link to `/signin` loads (GitHub's 404 fallback, the
    one expected console message), demo sign-in, course list (36/58 matched, 22
@@ -161,8 +147,11 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    when the app will listen by itself (`listening` flag per video; quiet note on
    the Path row, "Nothing for you to do" on Sources). Whisper gets the title and
    subject as a spelling hint. 210 tests pass, lint clean, gate PASS, frontend
-   builds. Not yet seen in a browser: the new quiet wording (only built and
-   type-checked).
+   builds. Not yet seen in a browser: the new quiet wording. The Chrome
+   extension disconnected, so it was checked another way: the real server marks
+   all 9 caption-less videos of the demo copy `listening: true`, and the built
+   files contain the new sentences. To see it: start the app on a copy of
+   `backend/data/demo.db` and open Sources and Path.
    The owner also pointed to `github.com/lifesized/youtube-transcriber`: it uses
    the same order (captions, then Whisper on the machine). Nothing was copied
    from it (separate Node app, AGPL-3.0, its quick path is a cloud service); see
@@ -377,8 +366,14 @@ needed, because startup now upgrades old databases automatically.
 
 - YouTube was blocking this machine on 2026-11-10 after one burst of requests.
   Pacing was added afterwards; whether the block has lifted is untested.
-- A playlist taught in Hindi is being run (finishing pass item 4); captions translated
-  by YouTube and a multilingual embedding model are still unverified on real videos.
+- A playlist taught in Hindi was run and judged (finishing pass item 4). Captions
+  translated by YouTube and a multilingual embedding model are still unverified on
+  real videos.
+- Study ranges can start late inside the right lecture, and "Need for
+  normalization" is a wrong gap on the Hindi playlist (see [[Matching Pipeline]]).
+- The new quiet wording ("The app is listening to this video...") was not seen in
+  a browser: the Chrome extension disconnected. The server's answers and the built
+  files were checked instead.
 - YouTube refuses caption downloads from this PC (HTTP 429, 2026-11-11 evening to at
   least 2026-11-12 midday). Listening and pasting work around it.
 - The YouTube Data API backend is written but has never run against the real API
@@ -394,7 +389,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-12 | (this commit) | From judging the Hindi playlist against its transcripts: the reranker may not overrule a nearly certain first stage that the transcript backs ("Insertion deletion and update anomalies" was a gap although lecture 24 teaches it); Whisper gets the title and subject as a spelling hint ("closure" had come out as "closer"). Quieter screens: no request to paste when the app listens by itself. Two-step listening seen working in the real app with a real video. 210 tests pass, lint clean, gate 25/25, the three cached real courses differ only in the intended topic, frontend builds. Demo republished. |
+| 2026-11-12 | (this commit) | Hindi playlist finished and judged against its transcripts (item 4 done): 15 of 21 topics matched, all on a lecture that teaches the topic, 4 starting late; 5 right gaps, 1 wrong. Two more fixes from it: a title term heard as a sound-alike word is put back ("closer" to "closure", `restore_title_terms`), and a title that names the whole topic gets the full title bonus (1NF now points to its own lecture). 218 tests pass, lint clean, gate 25/25, the other two real courses unchanged. |
+| 2026-11-12 | `96bfbc6` | From judging the Hindi playlist against its transcripts: the reranker may not overrule a nearly certain first stage that the transcript backs ("Insertion deletion and update anomalies" was a gap although lecture 24 teaches it); Whisper gets the title and subject as a spelling hint ("closure" had come out as "closer"). Quieter screens: no request to paste when the app listens by itself. Two-step listening seen working in the real app with a real video. 210 tests pass, lint clean, gate 25/25, the three cached real courses differ only in the intended topic, frontend builds. Demo republished. |
 | 2026-11-12 | `66a65e5` | Listening is the default (owner's instruction): captions first and the path, then a second job listens to the videos left without words and updates the path; status `silent`; switches itself off without ffmpeg; `ASR_MODEL=small`, `ASR_MAX_MINUTES=180`; "Nothing could be heard" wording in the paste box. 208 tests pass, lint clean, gate 25/25, frontend builds. Not yet seen in the real app with a real video. Demo republished. |
 | 2026-11-12 | `505c0c0` | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |
 | 2026-11-12 | (this commit) | Demo build clicked through locally (the online address is still 404); the suggested `youtube-caption-extractor` library also gets HTTP 429 from YouTube; local final state checked (empty `app.db`, no server running). No code changed. |

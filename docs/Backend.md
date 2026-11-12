@@ -102,6 +102,9 @@ With `frontend/dist` built, the same server serves the app at `/`.
      Whisper is given the lecture's title and the course subject as a hint
      (`initial_prompt`), which steers the spelling of terms: without it a Hindi
      lecture on "closure" came out as "closer" throughout and the topic was missed.
+     The hint fixed some terms ("CVMS" became "DBMS") but not that one, so
+     `restore_title_terms` also puts back a title word that is never heard while
+     one sound-alike word is heard three times or more.
      The audio comes from a different YouTube service than captions, so a
      caption block does not stop it (seen on 2026-11-12: captions answered HTTP 429
      all day, audio downloaded normally). After three refusals in a row captions

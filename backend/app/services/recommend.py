@@ -536,7 +536,14 @@ def _rank_score(
 ) -> float:
     base = final_score(float(relevance[row, column]), quality[column])
     title = index.videos[column].title
-    score = base + TITLE_BONUS * title_affinity(text, title)
+    affinity = title_affinity(text, title)
+    named = _title_tokens(re.sub(r"\([^)]*\)", " ", text))
+    if named and named <= _title_tokens(title):
+        # The title names the whole topic, however long the title is ("First
+        # Normal form in DBMS in HINDI | ..." for "First normal form (1NF)"): on a
+        # real playlist a worked example had edged out the lecture on the topic.
+        affinity = 1.0
+    score = base + TITLE_BONUS * affinity
     # Between equally relevant videos, teach the concept before the worked problems.
     if _PRACTICE_TITLE.search(title) and not _PRACTICE_TITLE.search(text):
         score -= PRACTICE_PENALTY

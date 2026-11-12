@@ -96,16 +96,52 @@ change it only with the tools in [[Evaluation and Testing]].
   0:00; the three levels are really taught in "View of Data" from 2:41 (the words
   "three schema" are never spoken, so only meaning can find it, and the reranker
   prefers the look-alike title).
+- Real 15-lecture playlist taught in Hindi (Gate Smashers, normalization, lectures
+  24 to 38), 21 syllabus topics, checked against the transcripts by hand
+  (2026-11-12). Words: 10 lectures from the English captions shown on YouTube
+  (YouTube refused every caption download from this PC, so they were copied from
+  "Show transcript"), 5 lectures heard by Whisper `small` on this PC and
+  translated from Hindi to English (about 91 minutes of audio in 36 minutes).
+  The heard English is correct and readable.
+  Result: 15 topics matched, 6 gaps.
+  - Gaps: 5 are right (the whole second unit, transactions and storage, is not
+    in the playlist). 1 is wrong: "Need for normalization" is taught in lecture
+    24 from 0:00, but the words "need for" are never said and both stages score
+    it low.
+  - Matches: all 15 point to a lecture that teaches the topic. 11 start at the
+    right place. 4 start late inside the right lecture: "Insertion deletion and
+    update anomalies" at 5:31 (taught from 4:06), "Trivial and non-trivial
+    functional dependency" at 10:05 (from 7:12), "Partial dependency" at 17:00
+    of the 2NF lecture (defined at 7:00), "Lossless join decomposition" at 18:33
+    (the whole lecture is about it; its title also names the fifth normal form,
+    so the "whole video" rule does not apply).
+  Three errors were found by this check and fixed (each has tests):
+  - "Insertion deletion and update anomalies" was a gap: the reranker gave 0 to
+    the lecture titled with exactly that. Fixed by the "sure first stage" rule.
+  - "Closure of a set of attributes" was a gap: Whisper wrote "closer" 28 times
+    and never "closure". Fixed by `restore_title_terms` in `services/asr.py` (a
+    title word of six letters or more that is never heard, while one sound-alike
+    word is heard three times or more, is put back). Giving Whisper the title as
+    a hint did not fix this word, but it did fix "CVMS" to "DBMS". The cached
+    transcripts were corrected with the same function, not listened to again.
+  - "First normal form (1NF)" pointed to a worked example (lecture 36) instead
+    of the lecture on it (25). Fixed: a title that names the whole topic gets
+    the full title bonus (`_rank_score`), however long the title is.
+  The other two real courses are unchanged by the three fixes (operating systems
+  58 of 58 topics, English database playlist 15 of 15).
 
 ## Known limits
 
 - Topics taught under different words than the syllabus uses can still be
   matched to a look-alike title (see the three-schema case above).
 
-- An English-only embedding model by default. Captions in other languages are
-  translated to English by YouTube when possible; otherwise the video is matched on
-  its title and marked `foreign`. A multilingual `EMBEDDING_MODEL` uses them
-  directly. Not yet verified on real non-English playlists.
+- An English-only embedding model by default. A lecture spoken in another
+  language is matched through English: its English captions when it has them,
+  otherwise Whisper listens and translates (verified on a real Hindi playlist,
+  see "Results"). A multilingual `EMBEDDING_MODEL` would use other-language
+  captions directly; that path is still not verified on real videos.
+- Study ranges can start late inside the right lecture (4 of 15 on the Hindi
+  playlist), and a topic worded abstractly ("Need for ...") can be missed.
 - The lexical fallback (`EMBEDDING_BACKEND=hash`) has no reranker and is weaker.
 
 ## Related

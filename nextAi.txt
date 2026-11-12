@@ -58,56 +58,54 @@ USEFUL FACTS
 - Keep this file up to date so another AI can take over at any moment.
 
 CURRENT STATE (updated at every checkpoint)
-- Date: 2026-11-12, about 14:45
-- Done: finishing pass items 1, 2, 3 and 5. The repository is public again, the
-  demo is online (HTTP 200) and was clicked through on the real address.
-  backend/data/app.db is empty.
-- Committed and pushed at about 14:45: the "listen or paste" work (pasted.py,
-  pipeline.py, asr.py, the two new endpoints, "Paste its transcript" on the Path
-  and Sources screens, --transcripts in evaluation/live.py). Verified before the
-  commit: 204 tests pass, ruff clean, evaluation gate PASS (25/25), npm run build
-  passes, and the paste box was used in Chrome on a throwaway copy of the demo
-  database (a pasted transcript was accepted and the row changed; no console
-  errors; copy deleted, server stopped).
-- My newest instruction (2026-11-12, 14:40): if a video has no transcript, the app
-  must download the audio and make the transcript from it. I want the transcript
-  anyhow. So listening (ASR) must be ON by default, not an option. Everything
-  must run locally on my PC and stay inside this project folder.
-- Built and pushed for that (finishing pass item 7 in docs/Progress.md):
-  ASR_ENABLED defaults to true, ASR_MODEL to small. The first job reads captions
-  and builds the path; a second job (options listen) then listens to the videos
-  left without words and updates the path. A video with nothing to hear gets the
-  status "silent". Verified: 208 tests, ruff clean, gate PASS, npm run build.
-  Seen working in the real app with a real video (throwaway copy of demo.db).
-  Also pushed: no request to paste a transcript when the app listens by itself
-  (my instruction: the user must not decide what is listened to; least
-  discomfort, a clear path); Whisper gets the title and subject as a spelling
-  hint; a matching rule so a nearly certain first-stage match that the
-  transcript backs cannot become a gap. 210 tests, ruff clean, gate PASS, build.
-  Not yet seen in a browser: the new quiet wording on the Path and Sources
-  screens. Do that, then mark item 7 [x].
+- Date: 2026-11-12, about 16:10
+- Finishing pass (docs/Progress.md): items 1, 2, 3, 4 and 5 are done. Item 7
+  (listening by default) is built, tested and seen working in the real app; one
+  small check is left (below). Item 6 is the last step: everything pushed and CI
+  green for the last commit.
+- My instructions, all still valid:
+  * All work stays inside this project folder and runs locally on my PC.
+  * If a video has no transcript, the app must download the audio and make the
+    transcript from it. I want the transcript anyhow.
+  * The user must not decide what is listened to. The app does it by itself.
+    Least discomfort for the user; the path must be clear.
+  * "Non-English" means: the teacher may speak any language and the transcript
+    may be in any language. The transcript is what must be matched.
+  * Always update the docs and this file after every change.
+- What the app does now when a video has no usable captions (none, refused by
+  YouTube, or in a language the model cannot read):
+  1. The first job reads captions and builds the path (fast).
+  2. A second job starts by itself, listens to those videos with Whisper "small"
+     on this PC (about as long as the videos) and updates the path. The path
+     stays usable meanwhile; a line at the top shows the progress.
+  3. The screens only say that this is happening. "Paste its transcript" is
+     shown only as a last resort (nothing could be heard, or no ffmpeg).
+  Settings: ASR_ENABLED (default true), ASR_MODEL (default small),
+  ASR_MAX_MINUTES (default 180). Needs ffmpeg (installed on my PC).
+- Hindi playlist PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW: done and judged against the
+  transcripts. 15 of 21 topics matched, all on a lecture that teaches the topic
+  (4 start late), 5 right gaps, 1 wrong gap ("Need for normalization"). Details
+  in docs/Matching Pipeline.md "Results". Three matching fixes came out of it.
 - I pointed to github.com/lifesized/youtube-transcriber. It uses the same order
   (captions, then Whisper on the machine). Nothing was copied from it (AGPL,
-  Node app, cloud option). Recorded in docs/Decisions.md.
-- I want all work done inside this project folder, nowhere else.
-- What "non-English" means to me: the teacher may speak any language and the
-  transcript may be in any language. The transcript is what must be matched.
-- Item 4, in progress: the Hindi playlist PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW.
-  YouTube refuses caption downloads from this PC (HTTP 429) by every tool.
-  11 transcripts were copied from YouTube's "Show transcript" in my Chrome
-  (Claude in Chrome extension) into backend/data/hi-captions/. The run below
-  died at about 10:35 with nothing heard and was started again at 14:20. It
-  listens to 5 lectures (26, 35, 36, 37, 38; about 90 minutes of audio) with
-  Whisper small:
-      cd backend
-      ASR_ENABLED=true ASR_MODEL=small PYTHONIOENCODING=utf-8 .venv/Scripts/python -m evaluation.live --name hi-dbms --subject "Database Management Systems" --playlist "https://www.youtube.com/playlist?list=PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW" --syllabus evaluation/samples/dbms_normalization_syllabus.txt --transcripts data/hi-captions --raw > data/live-hi-dbms.log 2>&1
-  Read backend/data/live-hi-dbms.log. If it has no path at the end, run the
-  command again (finished lectures are cached in data/live-hi-dbms.db). Then judge
-  every match against the transcripts, write the result into
-  docs/Matching Pipeline.md "Results", and mark item 4 done in docs/Progress.md.
+  Node app, its quick path is a cloud service). Recorded in docs/Decisions.md.
+- Verified for the last commit: 218 tests pass, ruff clean, evaluation gate PASS
+  (25/25), npm run build passes, the three cached real courses were compared
+  before and after each matching change.
+- LEFT TO DO, in order:
+  1. Read CI for the last commit on main (curl on api.github.com, see
+     docs/Progress.md item 1). If it is green, mark item 6 [x].
+  2. See the new quiet wording in a browser (the Claude in Chrome extension
+     disconnected before this could be done): copy backend/data/demo.db to
+     backend/data/tmp/check.db, start the server on it
+     (DATABASE_URL=sqlite:///./data/tmp/check.db DATA_DIR=./data), open the
+     course, look at Sources ("Nothing for you to do") and at a Path row of a
+     video without captions ("The app is listening to this video..."). Stop the
+     server, delete the copy. Then mark item 7 [x].
+  3. Optional, known weak points (docs/Matching Pipeline.md): study ranges that
+     start late inside the right lecture; the wrong gap "Need for normalization";
+     the wrong match "Three-schema architecture".
 - Do not: call YouTube's transcript service from a script posing as a browser
   (refused here as bot-check circumvention), or retry caption downloads in a loop.
-- Left after that: item 6 (everything pushed, CI green for the last commit).
-  Optional: the known wrong match "Three-schema architecture"
-  (docs/Matching Pipeline.md).
-- Next step: the first item not marked [x] in "Finishing pass" in docs/Progress.md.
+- Throwaway scripts of this session are in backend/data/tmp/ (not in git). They
+  can be deleted.
