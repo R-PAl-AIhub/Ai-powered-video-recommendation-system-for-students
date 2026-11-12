@@ -104,11 +104,28 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    would not exercise the non-English path (translated or original-language
    captions). Pick a playlist whose only caption track is not English; check with
    `YouTubeTranscriptApi().list(video_id)` before running.
+   The owner suggested the npm library `youtube-caption-extractor`
+   (github.com/devhims/youtube-caption-extractor); tried at 09:40 on two videos
+   (an English and a Hindi track): "Caption fetch failed: 429" as well. Not added
+   to the project.
 5. [ ] Click through the live demo in a browser. **Blocked 2026-11-12: the demo
    answers 404** (see "Blocked on the owner" above).
+   Done instead, on the owner's instruction to work locally (2026-11-12): the
+   same demo build (`npm run build:pages` with the Pages base path), served from
+   `frontend/dist-pages` with `vite preview` and clicked through in the browser.
+   Worked: landing page, prefilled demo sign-in, course list (36/58 matched, 22
+   gaps), Path with study ranges and "Also read" (OSTEP pages and sections), the
+   player (opens at second 637 for a 10:37 start, closes), the read-only message
+   on "Wrong topic", Focus, Questions (6 of 8), Topics, Sources, Search (found,
+   and the demo's hint when not found), no sideways scroll at desktop width, no
+   console errors. Not checked: phone width (the browser window could not be
+   resized this time; it was checked on 2026-11-11), the look by eye, and the
+   online address itself. The preview server was stopped afterwards.
 6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
    `nextAi.txt` final, everything pushed. Reading CI for the latest commit
-   needs the repository to be public again, or a login.
+   needs the repository to be public again, or a login. Checked locally on
+   2026-11-12: `backend/data/app.db` has 0 users and 0 courses, nothing listens
+   on ports 8000 or 4173, the working tree is clean and pushed.
 
 Cannot be done here (recorded, not faked): YouTube Data API path (no key), YouTube
 watch time (not offered by YouTube), Docker run on this PC.
@@ -334,6 +351,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-12 | (this commit) | Demo build clicked through locally (the online address is still 404); the suggested `youtube-caption-extractor` library also gets HTTP 429 from YouTube; local final state checked (empty `app.db`, no server running). No code changed. |
 | 2026-11-12 | (this commit) | Tests for the question fallback (191 tests pass, lint clean, gate 25/25). Non-English run retried: YouTube still refuses caption downloads (HTTP 429), and the Hindi candidate turned out to have English captions. Found the online demo answering 404 because the repository is no longer public; left for the owner to decide. |
 | 2026-11-11 | (this commit) | Browser pass of the full app finished; `start-waypoint.bat` run and working; unanswered past questions fall back to where their topic is taught. Non-English run blocked by YouTube rate limiting. |
 | 2026-11-11 | (this commit) | Transcript evidence rules in matching (contents read-outs are not teaching; a topic discussed by name counts under any title), found on a real database-systems playlist checked against its transcripts; 188 tests, gate 25/25, real OS course unchanged. CI of `ed24d3c` fully green, including PostgreSQL and the Docker image. Full app verified in the browser up to a finished analysis. |

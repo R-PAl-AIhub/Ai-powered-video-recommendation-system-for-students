@@ -63,7 +63,11 @@ CURRENT STATE (updated at every checkpoint)
   app tested in the browser; start-waypoint.bat run and working;
   backend/data/app.db is empty and ready for my sign-up). The optional test for
   the question fallback is written (tests/test_question_fallback.py; 191 tests
-  pass, lint clean, gate 25/25). No server is running.
+  pass, lint clean, gate 25/25). The demo build was clicked through locally
+  (frontend/dist-pages served with vite preview): everything worked; phone
+  width and the online address were not checked. backend/data/app.db is still
+  empty. No server is running.
+- I want all work done inside this project folder, nowhere else.
 - BLOCKED, needs me (the owner): the repository is no longer publicly visible
   (anonymous requests to github.com and api.github.com get 404; git with my
   login still works). Because of that the demo link answers 404 and CI cannot
@@ -76,7 +80,7 @@ CURRENT STATE (updated at every checkpoint)
      works). Do not retry in a loop. PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW is the
      wrong candidate: it has human English captions. Choose a playlist whose
      only caption track is not English. Judge against the transcripts, not the
-     titles.
+     titles. The npm library youtube-caption-extractor was tried too: also 429.
   b. Item 5: click through the live demo in a browser (after the block above).
   c. Item 6: final check that everything is pushed and CI is green for the
      latest commit (after the block above).
