@@ -58,18 +58,28 @@ USEFUL FACTS
 - Keep this file up to date so another AI can take over at any moment.
 
 CURRENT STATE (updated at every checkpoint)
-- Date: 2026-11-11
-- Done: finishing pass items 1 (CI green), 2 (unit tests), 3 (full app tested in
-  the browser; start-waypoint.bat run and working; backend/data/app.db is empty
-  and ready for my sign-up). No server is running.
+- Date: 2026-11-12
+- Done: finishing pass items 1 (CI green for ed24d3c), 2 (unit tests), 3 (full
+  app tested in the browser; start-waypoint.bat run and working;
+  backend/data/app.db is empty and ready for my sign-up). The optional test for
+  the question fallback is written (tests/test_question_fallback.py; 191 tests
+  pass, lint clean, gate 25/25). No server is running.
+- BLOCKED, needs me (the owner): the repository is no longer publicly visible
+  (anonymous requests to github.com and api.github.com get 404; git with my
+  login still works). Because of that the demo link answers 404 and CI cannot
+  be read with plain curl. Do NOT change the visibility yourself. Ask me whether
+  to make the repository public again or to publish the demo from a separate
+  public repository. The gh-pages branch is intact.
 - Left, in order:
-  a. Item 4: run one non-English playlist with real captions. YouTube was
-     blocking caption requests from this PC on 2026-11-11 at 20:01; wait some
-     hours, then try (candidate: PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW, Hindi).
-     Judge the result against the transcripts, not the titles.
-  b. Item 5: click through the live demo in a browser.
+  a. Item 4: one non-English playlist with real captions. On 2026-11-12 09:10
+     YouTube still refused caption downloads from this PC (HTTP 429; listing
+     works). Do not retry in a loop. PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW is the
+     wrong candidate: it has human English captions. Choose a playlist whose
+     only caption track is not English. Judge against the transcripts, not the
+     titles.
+  b. Item 5: click through the live demo in a browser (after the block above).
   c. Item 6: final check that everything is pushed and CI is green for the
-     latest commit.
-  d. Optional: a test for the question fallback in services/questions.py; the
-     known wrong match "Three-schema architecture" (docs/Matching Pipeline.md).
+     latest commit (after the block above).
+  d. Optional: the known wrong match "Three-schema architecture"
+     (docs/Matching Pipeline.md).
 - Next step: the first item not marked [x] in "Finishing pass" in docs/Progress.md.

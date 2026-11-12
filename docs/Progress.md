@@ -4,14 +4,15 @@ Back to [[Project Map]]. **This is the single source of truth for where the work
 stands.** Update it at every checkpoint: move items between sections, add a line to
 the checkpoint log, and rewrite "Resume here".
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-12.
 
 ## State in one paragraph
 
 The backend and frontend are complete, tested and browser-checked, with migrations.
 Study material beyond videos is built, with its UI. The read-only demo is live on
 GitHub Pages, the owner runs the full app on his PC with `start-waypoint.bat`, and
-the README is written. What remains is optional (see "Resume here").
+the README is written. **On 2026-11-12 the online demo answers 404, because the
+repository is no longer publicly visible; the owner must decide (see "Resume here").**
 
 ## Resume here
 
@@ -32,6 +33,24 @@ the README is written. What remains is optional (see "Resume here").
 **Owner's instruction (2026-11-11, newest): finish everything, so that the owner only
 has to double-click and sign up. Reflect every change in these notes, and keep
 `nextAi.txt` (root) current: it is a copy-paste prompt for another AI to continue.**
+
+### Blocked on the owner (found 2026-11-12)
+
+The repository cannot be seen without a login any more: the repository page on
+github.com and its address on api.github.com both answer 404 to an anonymous
+request, while `git ls-remote` with the stored login still lists `main` and
+`gh-pages`. So it was made private (or access was restricted) after 2026-11-11.
+Two effects:
+
+- The demo link answers 404 ("Site not found"). On a free GitHub account, Pages
+  serves only public repositories. The `gh-pages` branch is still there
+  (`5c9aee2`); nothing needs to be rebuilt.
+- CI results can no longer be read with plain `curl` (item 6).
+
+Nothing was changed about this: repository visibility is the owner's choice. To
+bring the demo back, either make the repository public again (Settings > General >
+Danger Zone > Change visibility), or publish the demo from a separate public
+repository. Then do items 5 and 6.
 
 ### Finishing pass
 
@@ -65,7 +84,9 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    not checked by eye, only the content and behaviour.
    Found and fixed: a past question with no direct answer now points to where its
    topic is taught (`link_questions` in `services/questions.py`); real OS course
-   unchanged (6 of 8 answered). No dedicated test was written for this fallback.
+   unchanged (6 of 8 answered). The fallback has its own tests since 2026-11-12
+   (`tests/test_question_fallback.py`: answered where the topic is taught, left
+   unanswered when the topic is a gap, a direct answer is kept).
 4. [~] More real playlists. Done: a database-systems playlist (see [[Matching
    Pipeline]], "Results"), judged against the transcripts, not the titles. Its
    transcripts are kept in `backend/data/live-dbms.db` (not in git) for offline
@@ -73,11 +94,21 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    playlist (`PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW`) was tried at 20:01, but YouTube
    had started refusing caption requests from this PC (IpBlocked, also for a
    video that worked an hour before). The app handled it as designed: warning,
-   title-only path (7 of 13 matched), automatic retry scheduled. Try again when
-   the block has lifted (hours).
-5. [ ] Click through the live demo in a browser.
+   title-only path (7 of 13 matched), automatic retry scheduled. Tried again on
+   2026-11-12 at 09:10: still blocked. Listing a playlist and listing a video's
+   caption tracks work; downloading the caption text answers HTTP 429 (the same
+   through youtube-transcript-api and through yt-dlp, so it is this PC's address,
+   not the library). Do not retry in a loop: each attempt can extend the block.
+   Also found: this playlist is the wrong candidate. Its videos are spoken in
+   Hindi but carry human-written **English** captions (checked on 5 of 15), so it
+   would not exercise the non-English path (translated or original-language
+   captions). Pick a playlist whose only caption track is not English; check with
+   `YouTubeTranscriptApi().list(video_id)` before running.
+5. [ ] Click through the live demo in a browser. **Blocked 2026-11-12: the demo
+   answers 404** (see "Blocked on the owner" above).
 6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
-   `nextAi.txt` final, everything pushed.
+   `nextAi.txt` final, everything pushed. Reading CI for the latest commit
+   needs the repository to be public again, or a login.
 
 Cannot be done here (recorded, not faked): YouTube Data API path (no key), YouTube
 watch time (not offered by YouTube), Docker run on this PC.
@@ -289,6 +320,7 @@ needed, because startup now upgrades old databases automatically.
 - YouTube was blocking this machine on 2026-11-10 after one burst of requests.
   Pacing was added afterwards; whether the block has lifted is untested.
 - Multi-language support is implemented but unverified on real videos.
+- The online demo answers 404 since the repository stopped being public (2026-11-12).
 - The YouTube Data API backend is written but has never run against the real API
   (no key was available).
 - PostgreSQL has run only in CI (all tests pass there); never on this PC.
@@ -302,6 +334,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-12 | (this commit) | Tests for the question fallback (191 tests pass, lint clean, gate 25/25). Non-English run retried: YouTube still refuses caption downloads (HTTP 429), and the Hindi candidate turned out to have English captions. Found the online demo answering 404 because the repository is no longer public; left for the owner to decide. |
 | 2026-11-11 | (this commit) | Browser pass of the full app finished; `start-waypoint.bat` run and working; unanswered past questions fall back to where their topic is taught. Non-English run blocked by YouTube rate limiting. |
 | 2026-11-11 | (this commit) | Transcript evidence rules in matching (contents read-outs are not teaching; a topic discussed by name counts under any title), found on a real database-systems playlist checked against its transcripts; 188 tests, gate 25/25, real OS course unchanged. CI of `ed24d3c` fully green, including PostgreSQL and the Docker image. Full app verified in the browser up to a finished analysis. |
 | 2026-11-11 | `ed24d3c` | Race in stopping after a YouTube block fixed (the one CI failure); unit tests for jobs, youtube, ocr, documents; UTF-16 text files accepted. |

@@ -5,7 +5,7 @@ Back to [[Project Map]].
 ## Commands (run in `backend/`)
 
 ```bash
-.venv/Scripts/python -m pytest                              # 188 tests, no network, about a minute
+.venv/Scripts/python -m pytest                              # 191 tests, no network, about a minute
 .venv/Scripts/python -m ruff check app evaluation tests     # lint
 .venv/Scripts/python -m evaluation.run --backend fastembed  # quality gate with the real models
 .venv/Scripts/python -m evaluation.run --backend hash       # quality gate with the lexical fallback
@@ -34,6 +34,9 @@ In `frontend/`: `npm run build` (type-check and build).
   encodings, web pages.
 - **`tests/test_transcript_evidence.py`**: the two transcript rules of
   [[Matching Pipeline]] (contents read-outs, topics discussed under another title).
+- **`tests/test_question_fallback.py`**: a past question with no direct answer is
+  answered where its topic is taught, stays unanswered when the topic is a gap,
+  and a direct answer is kept.
 - Together: 90% line coverage of `app/` (`documents.py` 97%, `ocr.py` 100%,
   `jobs.py` 95%, `youtube.py` 99%).
 - **`evaluation/os_course.py`**: a small labelled course (original transcripts, a
@@ -63,7 +66,8 @@ see the note in [[Backend]].
   never run against the real API (no key).
 - PostgreSQL runs in CI only (GitHub Actions); every test passes there.
 - More real playlists in other subjects, and non-English playlists. Blocked so far
-  by YouTube rate-limiting this machine.
+  by YouTube rate-limiting this machine (caption downloads answer HTTP 429, last
+  tried 2026-11-12).
 - The frontend has no automated tests.
 
 ## Related
