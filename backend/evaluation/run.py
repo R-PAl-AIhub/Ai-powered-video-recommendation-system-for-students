@@ -28,6 +28,7 @@ def main() -> int:
     os.environ["EMBEDDING_BACKEND"] = args.backend
     os.environ["RUN_WORKER"] = "false"
     os.environ["OCR_BACKEND"] = "none"
+    os.environ["ASR_ENABLED"] = "false"  # the labelled course has nothing to listen to
     if os.environ.get("MODEL_DIR") is None and args.backend == "fastembed":
         os.environ["MODEL_DIR"] = os.path.join(os.path.dirname(__file__), "..", "data", "models")
 

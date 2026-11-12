@@ -59,7 +59,9 @@ In `frontend/`: `npm run build` (type-check and build).
   prints the path. Caches into `backend/data/live-<name>.db`, so re-runs do not
   contact YouTube. `--raw` shows both stages' scores per topic. `--transcripts
   folder` loads `<video id>.txt` files copied from YouTube's "Show transcript"
-  first; with `ASR_ENABLED=true` the rest are listened to.
+  first; the rest are listened to in the same run (`ASR_ENABLED=false` turns
+  that off). The tests and the gate set `ASR_ENABLED=false`, so they never
+  download audio; tests that listen install a fake transcriber.
 - **`evaluation/rerank_study.py`**: compares rerankers and phrasings on 60 labelled
   pairs from the cached real playlist.
 - **`evaluation/samples/os_syllabus.txt`**: a realistic syllabus to try.

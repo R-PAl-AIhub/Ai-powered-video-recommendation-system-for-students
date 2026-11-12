@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     ocr_backend: Literal["auto", "google", "rapidocr", "tesseract", "none"] = "auto"
     google_vision_api_key: str | None = None
 
-    # Speech recognition for videos without captions (downloads audio; slow on CPU).
-    asr_enabled: bool = False
-    asr_model: str = "base"  # faster-whisper size: tiny, base, small, medium
-    asr_max_minutes: int = 90  # longer videos are skipped
+    # Speech recognition: a video without usable captions is listened to (its audio
+    # is downloaded; about as long as the video on CPU). On by default, so every
+    # video gets a transcript; it runs after the path is first built.
+    asr_enabled: bool = True
+    asr_model: str = "small"  # faster-whisper size: tiny, base, small, medium
+    asr_max_minutes: int = 180  # longer videos are skipped
     max_upload_mb: int = 25
     max_documents_per_project: int = 40
     max_topics_per_project: int = 250

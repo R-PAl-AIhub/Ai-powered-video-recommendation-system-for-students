@@ -80,6 +80,18 @@ def schedule_retry(db: Session, job: Job) -> Job | None:
     return retry
 
 
+def queue_listening(db: Session, job: Job) -> Job:
+    """After the path was built from the captions, queue a run that listens to
+    the videos left without words. It starts as soon as the worker is free."""
+    follow_up = Job(
+        project_id=job.project_id,
+        options={"listen": True, "auto_retry": int(job.options.get("auto_retry", 0))},
+        message="Waiting to listen to videos without captions",
+    )
+    db.add(follow_up)
+    return follow_up
+
+
 def promote_due(db: Session) -> int:
     """Move scheduled retries whose time has come onto the queue."""
     due = db.scalars(
@@ -172,7 +184,9 @@ def execute(db: Session, job: Job) -> None:
         job.status, job.stage, job.progress = "done", "done", 1.0
         job.message = "Your learning path is ready"
         job.warnings = result.warnings
-        if result.blocked_videos:
+        if result.to_listen:
+            queue_listening(db, job)
+        elif result.blocked_videos:
             schedule_retry(db, job)
     except Exception as exc:
         log.exception("job %s failed", job.id)

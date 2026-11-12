@@ -130,6 +130,7 @@ def main() -> int:
     os.environ["DATABASE_URL"] = f"sqlite:///{database.as_posix()}"
     os.environ["DATA_DIR"] = str(root / "data")
     os.environ["RUN_WORKER"] = "false"
+    os.environ.setdefault("ASR_ENABLED", "false")
     os.environ["MIN_VIDEO_SECONDS"] = "0"
 
     import numpy as np

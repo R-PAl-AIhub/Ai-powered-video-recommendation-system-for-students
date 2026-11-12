@@ -10,7 +10,7 @@ when tuning calibration. ``--search "topic"`` runs extra topic searches.
 
 ``--transcripts folder`` loads ``<video id>.txt`` files (text copied from
 YouTube's "Show transcript" panel) before the run, for videos whose captions
-YouTube refuses to send. ``ASR_ENABLED=true`` listens to whatever is left.
+YouTube refuses to send. Whatever is left is listened to (``ASR_ENABLED=false`` turns that off).
 """
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ def main() -> int:
             db.commit()
             print(f"  {loaded} pasted transcripts loaded", flush=True)
 
-        warnings = run_pipeline(db, project, report, {"reextract": True}).warnings
+        warnings = run_pipeline(db, project, report, {"reextract": True, "listen": True}).warnings
         elapsed = time.monotonic() - started
         db.refresh(project)
         path = build_path(db, project)

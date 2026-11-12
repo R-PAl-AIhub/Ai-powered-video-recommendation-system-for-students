@@ -13,7 +13,10 @@ Study material beyond videos is built, with its UI. The read-only demo is live o
 GitHub Pages, the owner runs the full app on his PC with `start-waypoint.bat`, and
 the README is written. The repository is public again and the demo is back online
 (2026-11-12). The app now has three ways to get a video's words when YouTube refuses
-captions (listen, paste, retry); see "Finishing pass" item 4 for what is still open.
+captions (listen, paste, retry). Since 2026-11-12 afternoon listening is ON by default
+(owner: "I want the transcript anyhow"): the path is built from captions first, then
+a second job listens to every video left without words and updates the path. See
+"Finishing pass" items 4 and 7 for what is still open.
 
 ## Resume here
 
@@ -133,6 +136,29 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    about 14:45 after the tests, the gate, the build and a browser check of the
    paste box. **Open: the Hindi playlist result (item 4), then CI green for the
    last commit.**
+
+7. [~] Listening by default (owner, 2026-11-12 14:40: "if there is no transcript
+   download the audio and extract the transcript out of it, I want the transcript
+   anyhow"; everything local, on his PC). Built: `ASR_ENABLED` defaults to `true`,
+   `ASR_MODEL` to `small`, `ASR_MAX_MINUTES` to 180; the first job reads captions
+   and builds the path, then `queue_listening` (`services/jobs.py`) queues a second
+   job that listens (`options["listen"]`) and rebuilds the path; status `silent`
+   for a video with nothing to hear, so it is not listened to again; without
+   ffmpeg the app switches listening off and logs one line; a video added from a
+   search is not listened to inside the web request. Verified: 208 tests pass
+   (4 new in `tests/test_listen_when_blocked.py`), lint clean, gate PASS (25/25),
+   `npm run build` passes, and on this PC the default settings give
+   `faster-whisper:small` (ffmpeg found). **Not yet seen: the two jobs in the real
+   app in a browser with a real video** (the Hindi run was using the processor).
+   To check: copy `backend/data/demo.db` to `backend/data/tmp/check.db`, start the
+   server on it, press "Update the path" on the Sources screen, see the path
+   stay visible, the line "Listening to videos without captions: n of 9 done",
+   and one video lose its "Paste its transcript" link. Stop the server, delete
+   the copy.
+   The owner also pointed to `github.com/lifesized/youtube-transcriber`: it uses
+   the same order (captions, then Whisper on the machine). Nothing was copied
+   from it (separate Node app, AGPL-3.0, its quick path is a cloud service); see
+   [[Decisions]].
 
 Cannot be done here (recorded, not faked): YouTube Data API path (no key), YouTube
 watch time (not offered by YouTube), Docker run on this PC.
@@ -360,7 +386,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-12 | (this commit) | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |
+| 2026-11-12 | (this commit) | Listening is the default (owner's instruction): captions first and the path, then a second job listens to the videos left without words and updates the path; status `silent`; switches itself off without ffmpeg; `ASR_MODEL=small`, `ASR_MAX_MINUTES=180`; "Nothing could be heard" wording in the paste box. 208 tests pass, lint clean, gate 25/25, frontend builds. Not yet seen in the real app with a real video. Demo republished. |
+| 2026-11-12 | `505c0c0` | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |
 | 2026-11-12 | (this commit) | Demo build clicked through locally (the online address is still 404); the suggested `youtube-caption-extractor` library also gets HTTP 429 from YouTube; local final state checked (empty `app.db`, no server running). No code changed. |
 | 2026-11-12 | (this commit) | Tests for the question fallback (191 tests pass, lint clean, gate 25/25). Non-English run retried: YouTube still refuses caption downloads (HTTP 429), and the Hindi candidate turned out to have English captions. Found the online demo answering 404 because the repository is no longer public; left for the owner to decide. |
 | 2026-11-11 | (this commit) | Browser pass of the full app finished; `start-waypoint.bat` run and working; unanswered past questions fall back to where their topic is taught. Non-English run blocked by YouTube rate limiting. |

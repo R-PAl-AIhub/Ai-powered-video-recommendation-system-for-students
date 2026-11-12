@@ -18,6 +18,7 @@ os.environ.update(
     RERANKER_MODEL="",
     RUN_WORKER="false",  # tests run jobs inline
     OCR_BACKEND="none",
+    ASR_ENABLED="false",  # tests that listen install a fake transcriber
     YOUTUBE_REQUEST_INTERVAL="0",
     SECRET_KEY="test-secret-key-that-is-long-enough-0123456789",
     AUTH_RATE_LIMIT_PER_MINUTE="1000",
@@ -103,7 +104,7 @@ def make_course(client: TestClient) -> int:
         )
         assert response.status_code == 201, response.text
     assert client.post(f"/api/projects/{project_id}/process").status_code == 202
-    assert run_jobs() == 1
+    assert run_jobs() >= 1  # a second run listens, when a transcriber is installed
     return project_id
 
 

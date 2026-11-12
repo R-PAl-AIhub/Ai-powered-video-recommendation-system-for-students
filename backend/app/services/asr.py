@@ -1,10 +1,13 @@
-"""Speech recognition for videos that have no captions (optional).
+"""Speech recognition for videos that have no usable captions.
 
-Off by default (``ASR_ENABLED=false``): it downloads each caption-less video's
-audio, which is slow on CPU and is the kind of request YouTube rate-limits, so
-requests go through the same pacing as everything else. Speech in other
-languages is translated to English by Whisper unless the embedding model is
-multilingual.
+On by default (``ASR_ENABLED=true``): it downloads the video's audio and makes
+the transcript from it, on this machine. That is slow on CPU (about as long as
+the video) and is the kind of request YouTube rate-limits, so requests go through
+the same pacing as everything else, and the pipeline listens only after the path
+has been built from the captions. Speech in other languages is translated to
+English by Whisper unless the embedding model is multilingual. Needs ffmpeg;
+without it (or without the faster-whisper package) the app works as before and
+says so in its log.
 """
 
 from __future__ import annotations
@@ -120,14 +123,41 @@ class WhisperTranscriber:
 
 _override: Transcriber | None = None
 _transcriber: Transcriber | None = None
+_available: bool | None = None
 _lock = threading.Lock()
+
+
+def _can_listen() -> bool:
+    """Whether this machine has what listening needs. Checked once."""
+    global _available
+    if _available is None:
+        import importlib.util
+        import shutil
+
+        missing = [
+            name
+            for name, present in (
+                ("ffmpeg", shutil.which("ffmpeg") is not None),
+                ("faster-whisper", importlib.util.find_spec("faster_whisper") is not None),
+                ("yt-dlp", importlib.util.find_spec("yt_dlp") is not None),
+            )
+            if not present
+        ]
+        if missing:
+            log.warning(
+                "Videos without captions cannot be listened to: %s is not installed. "
+                "They are matched on their titles.",
+                " and ".join(missing),
+            )
+        _available = not missing
+    return _available
 
 
 def get_transcriber() -> Transcriber | None:
     if _override is not None:
         return _override
     settings = get_settings()
-    if not settings.asr_enabled:
+    if not settings.asr_enabled or not _can_listen():
         return None
     global _transcriber
     with _lock:

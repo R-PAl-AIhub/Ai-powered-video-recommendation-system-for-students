@@ -14,7 +14,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -138,7 +138,7 @@ class _Fetched:
     video_id: int
     meta: VideoMeta | None
     transcript: Transcript | None
-    status: str  # ok | none | error
+    status: str  # ok | none | error | silent (listened to, nothing heard)
     blocked: bool = False  # nothing could be fetched; try again later
     refused: bool = False  # YouTube refused the caption request (even if we then listened)
 
@@ -182,16 +182,16 @@ def _fetch_one(
     has_description: bool,
     watch: _BlockWatch,
     duration_s: int = 0,
+    listen: bool = True,
 ) -> _Fetched:
     """Fetch one video (see ``_fetch``) and report to ``watch`` whether YouTube
     refused it. Once the watch says to stop, captions are not asked for any more:
-    the video is listened to if speech recognition is on, and otherwise left for
-    a retry."""
+    the video is listened to if this run listens, and otherwise left for later."""
     if watch.stopped():
-        if get_transcriber() is None:
+        if not listen or get_transcriber() is None:
             return _Fetched(video_id, None, None, "error", blocked=True)
         return _fetch(client, video_id, youtube_id, has_description, duration_s, captions=False)
-    fetched = _fetch(client, video_id, youtube_id, has_description, duration_s)
+    fetched = _fetch(client, video_id, youtube_id, has_description, duration_s, listen=listen)
     watch.record(fetched.refused)
     return fetched
 
@@ -203,6 +203,7 @@ def _fetch(
     has_description: bool,
     duration_s: int = 0,
     captions: bool = True,
+    listen: bool = True,
 ) -> _Fetched:
     """Fetch one video's transcript, and its details only if they are needed.
 
@@ -211,11 +212,14 @@ def _fetch(
     captions, where the description is the only text there is to match on.
 
     When YouTube refuses the caption request (or ``captions`` is false because
-    it has been refusing them) and speech recognition is on, the video is
-    listened to instead: the audio comes from a different YouTube service, which
-    a caption block does not cover.
+    it has been refusing them) and this run listens (``listen``, with speech
+    recognition available), the video is listened to instead: the audio comes
+    from a different YouTube service, which a caption block does not cover.
+    A video in which nothing could be heard gets the status ``silent``, so it is
+    not listened to again.
     """
-    transcriber = get_transcriber()
+    transcriber = get_transcriber() if listen else None
+    silent = False
     transcript = None
     refused = not captions
     if captions:
@@ -233,6 +237,7 @@ def _fetch(
         heard = None
         try:  # no usable captions, or captions refused: listen to the video instead
             heard = transcriber.transcribe(youtube_id, duration_s)
+            silent = heard is None
         except Exception as exc:
             if _is_block(exc) and transcript is None:
                 return _Fetched(video_id, None, None, "error", blocked=True, refused=refused)
@@ -244,6 +249,8 @@ def _fetch(
             return _Fetched(video_id, None, None, "error", blocked=True, refused=True)
         if transcript is not None and refused:
             return _Fetched(video_id, None, transcript, "ok", refused=True)
+        if silent:
+            transcript = None  # unreadable captions and nothing heard: title only
     meta = None
     if transcript is None and not has_description:
         try:
@@ -252,7 +259,8 @@ def _fetch(
             if _is_block(exc):
                 return _Fetched(video_id, None, None, "error", blocked=True)
             log.info("details unavailable for %s: %s", youtube_id, exc)
-    return _Fetched(video_id, meta, transcript, "ok" if transcript else "none")
+    status = "ok" if transcript else "silent" if silent else "none"
+    return _Fetched(video_id, meta, transcript, status)
 
 
 def transcript_usable(transcript: Transcript) -> bool:
@@ -338,16 +346,26 @@ def apply_fetched(db: Session, video: Video, fetched: _Fetched) -> None:
 
 
 def fetch_videos(
-    db: Session, project: Project, client: YouTubeClient, report: Progress, warnings: list[str]
+    db: Session,
+    project: Project,
+    client: YouTubeClient,
+    report: Progress,
+    warnings: list[str],
+    listen: bool = True,
 ) -> int:
     """Fetch transcripts for videos that still need one. Returns how many videos
-    could not be fetched because YouTube refused the requests."""
+    could not be fetched because YouTube refused the requests.
+
+    With ``listen`` (and speech recognition available) the videos left without
+    usable captions are listened to as well, which is slow. The analysis does
+    that in a second run, after the path has been built from the captions."""
+    can_listen = get_transcriber() is not None
+    listening = listen and can_listen
     wanted = ["pending", "error"]
     if get_embedder().multilingual:
         wanted.append("foreign")  # a multilingual model can use these after all
-    if get_transcriber() is not None:
-        # No captions, or captions in an unreadable language: speech recognition
-        # can listen now.
+    if listening:
+        # No captions, or captions in an unreadable language: listen now.
         wanted += ["none", "foreign"]
     pending = list(
         db.scalars(
@@ -371,6 +389,7 @@ def fetch_videos(
                 bool(video.description),
                 watch,
                 video.duration_s,
+                listen,
             )
             for video in pending
         ]
@@ -380,11 +399,32 @@ def fetch_videos(
             done += 1
             if done % 5 == 0 or done == len(pending):
                 db.commit()
-            report("transcripts", done / len(pending), f"Fetched {done} of {len(pending)} videos")
+            message = (
+                f"Listening to videos without captions: {done} of {len(pending)} done. "
+                "This takes about as long as the videos."
+                if listening
+                else f"Fetched {done} of {len(pending)} videos"
+            )
+            report("transcripts", done / len(pending), message)
     db.commit()
 
     statuses = [v.transcript_status for v in pending]
     blocked = statuses.count("error")
+    if can_listen and not listen:
+        # These videos are listened to next (see ``run_pipeline``), which says so.
+        for video in pending:
+            if not video.chunks:
+                video.chunks = build_chunks(video, [], None)
+        db.commit()
+        return blocked
+    silent = statuses.count("silent")
+    if silent:
+        warnings.append(
+            f"Nothing could be heard in {silent} video{'s' if silent != 1 else ''} "
+            f"(no speech, or longer than {get_settings().asr_max_minutes} minutes), so "
+            f"{'they are' if silent != 1 else 'it is'} matched on the title only. "
+            "You can paste a transcript on the Sources screen."
+        )
     if blocked:
         warnings.append(
             f"YouTube is temporarily limiting requests, so {blocked} "
@@ -637,6 +677,7 @@ STAGE_SPANS = {
 class PipelineResult:
     warnings: list[str] = field(default_factory=list)  # shown to the student
     blocked_videos: int = 0  # videos YouTube refused; worth retrying later
+    to_listen: int = 0  # videos without usable captions, to be listened to next
 
 
 def run_pipeline(
@@ -657,8 +698,33 @@ def run_pipeline(
     stage_report("playlists", 0, "Reading playlists")
     sync_playlists(db, project, client, stage_report, warnings)
 
-    stage_report("transcripts", 0, "Fetching video transcripts")
-    blocked = fetch_videos(db, project, client, stage_report, warnings)
+    # Listening is slow, so it is a run of its own (``options["listen"]``), queued
+    # after the run that builds the path from the captions.
+    listen = bool(options.get("listen"))
+    stage_report(
+        "transcripts",
+        0,
+        "Listening to videos without captions" if listen else "Fetching video transcripts",
+    )
+    blocked = fetch_videos(db, project, client, stage_report, warnings, listen=listen)
+    to_listen = 0
+    if not listen and get_transcriber() is not None:
+        to_listen = db.scalar(
+            select(func.count())
+            .select_from(Video)
+            .where(
+                Video.project_id == project.id,
+                Video.transcript_status.in_(("none", "foreign", "error")),
+            )
+        ) or 0
+        if to_listen:
+            one = to_listen == 1
+            warnings.append(
+                f"{to_listen} video{'' if one else 's'} did not give captions that can be "
+                f"read. {'It is' if one else 'They are'} listened to next, which takes about "
+                f"as long as the video{'' if one else 's'}; the path updates by itself. "
+                f"Until then {'it is' if one else 'they are'} matched on the title."
+            )
 
     score_comments(db, project, client)
 
@@ -697,7 +763,9 @@ def run_pipeline(
         d.kind == "reading" for d in project.documents
     ):
         warnings.append("No videos were found. Add a YouTube playlist to get recommendations.")
-    return PipelineResult(warnings=list(dict.fromkeys(warnings)), blocked_videos=blocked)
+    return PipelineResult(
+        warnings=list(dict.fromkeys(warnings)), blocked_videos=blocked, to_listen=to_listen
+    )
 
 
 def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video:
@@ -717,7 +785,8 @@ def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video
             raise
         except YouTubeError as exc:
             raise YouTubeError("That video could not be loaded from YouTube.") from exc
-        fetched = _fetch_one(client, video.id, youtube_id, True, _BlockWatch())
+        # Not listened to here (this is a web request): the next analysis does it.
+        fetched = _fetch_one(client, video.id, youtube_id, True, _BlockWatch(), listen=False)
         fetched.meta = meta
         apply_fetched(db, video, fetched)
         db.flush()

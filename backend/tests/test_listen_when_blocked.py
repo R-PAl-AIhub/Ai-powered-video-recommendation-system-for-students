@@ -151,3 +151,106 @@ def test_unreadable_captions_without_listening_are_marked_foreign(client, youtub
     assert _status(client, project_id, "osBankers08") == "foreign"
     warnings = client.get(f"/api/projects/{project_id}/job").json()["warnings"]
     assert any("only have captions in hi" in warning for warning in warnings)
+
+
+# ----------------------------------------------- listening is the default, in two runs
+
+
+def _process(client, project_id: int) -> None:
+    assert client.post(f"/api/projects/{project_id}/process").status_code == 202
+
+
+def _run_one_job() -> None:
+    from app.db import SessionLocal
+    from app.services import jobs
+
+    with SessionLocal() as session:
+        job = jobs.claim_next(session)
+        assert job is not None
+        jobs.execute(session, job)
+
+
+def _without_captions(youtube) -> set[str]:
+    return {vid for vid, (_, video) in youtube.videos.items() if not video.sentences}
+
+
+class Audible(FakeWhisper):
+    """Also hears the videos that have no captions at all."""
+
+    def transcribe(self, video_id, duration_s=0):
+        if self.youtube.videos[video_id][1].sentences:
+            return super().transcribe(video_id, duration_s)
+        self.heard.append(video_id)
+        segments = [TranscriptSegment(0.0, 30.0, "Welcome to this lecture of the course.")]
+        return Transcript(language="en", is_generated=True, segments=segments)
+
+
+def test_listening_is_on_unless_switched_off():
+    from app.config import Settings
+
+    assert Settings.model_fields["asr_enabled"].default is True
+    assert Settings.model_fields["asr_model"].default == "small"
+
+
+def test_the_path_is_built_first_and_listening_follows(client, youtube):
+    from tests.conftest import run_jobs
+
+    quiet = _without_captions(youtube)
+    assert quiet
+    register(client)
+    project_id = make_course(client)  # listening is off here: those stay "none"
+    whisper = Audible(youtube)
+    set_transcriber(whisper)
+    try:
+        _process(client, project_id)
+        _run_one_job()
+        # The first run only reads captions, says what comes next, and queues it.
+        assert whisper.heard == []
+        waiting = _job(client, project_id)
+        assert waiting["status"] == "queued"
+        assert "listen" in waiting["message"]
+        assert path_of(client, project_id)["topics"]  # the path is already there
+        # The second run listens to exactly the videos without captions.
+        assert run_jobs() == 1
+    finally:
+        set_transcriber(None)
+    assert set(whisper.heard) == quiet
+    assert _job(client, project_id)["status"] == "done"
+    left = client.get(f"/api/projects/{project_id}/videos/untranscribed").json()
+    assert not {video["youtube_id"] for video in left} & quiet
+
+
+def test_a_video_with_nothing_to_hear_is_not_listened_to_twice(client, youtube):
+    from tests.conftest import run_jobs
+
+    quiet = _without_captions(youtube)
+    whisper = FakeWhisper(youtube)  # hears nothing in a video without sentences
+    set_transcriber(whisper)
+    try:
+        register(client)
+        project_id = make_course(client)
+        assert sorted(whisper.heard) == sorted(quiet)
+        warnings = _job(client, project_id)["warnings"]
+        assert any("Nothing could be heard" in warning for warning in warnings)
+        left = client.get(f"/api/projects/{project_id}/videos/untranscribed").json()
+        assert {v["youtube_id"]: v["transcript_status"] for v in left} == dict.fromkeys(
+            quiet, "silent"
+        )
+        # Updating the path again neither listens again nor queues a listening run.
+        _process(client, project_id)
+        assert run_jobs() == 1
+        assert sorted(whisper.heard) == sorted(quiet)
+    finally:
+        set_transcriber(None)
+
+
+def test_without_ffmpeg_the_app_still_works(monkeypatch):
+    import shutil
+
+    from app.config import get_settings
+    from app.services import asr
+
+    monkeypatch.setattr(get_settings(), "asr_enabled", True)
+    monkeypatch.setattr(asr, "_available", None)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert asr.get_transcriber() is None

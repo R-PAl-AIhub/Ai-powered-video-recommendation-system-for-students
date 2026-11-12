@@ -71,7 +71,18 @@ CURRENT STATE (updated at every checkpoint)
   errors; copy deleted, server stopped).
 - My newest instruction (2026-11-12, 14:40): if a video has no transcript, the app
   must download the audio and make the transcript from it. I want the transcript
-  anyhow. So listening (ASR) must be ON by default, not an option.
+  anyhow. So listening (ASR) must be ON by default, not an option. Everything
+  must run locally on my PC and stay inside this project folder.
+- Built and pushed for that (finishing pass item 7 in docs/Progress.md):
+  ASR_ENABLED defaults to true, ASR_MODEL to small. The first job reads captions
+  and builds the path; a second job (options listen) then listens to the videos
+  left without words and updates the path. A video with nothing to hear gets the
+  status "silent". Verified: 208 tests, ruff clean, gate PASS, npm run build.
+  NOT yet seen in the real app with a real video: do the check written under
+  item 7 in docs/Progress.md, then mark item 7 [x].
+- I pointed to github.com/lifesized/youtube-transcriber. It uses the same order
+  (captions, then Whisper on the machine). Nothing was copied from it (AGPL,
+  Node app, cloud option). Recorded in docs/Decisions.md.
 - I want all work done inside this project folder, nowhere else.
 - What "non-English" means to me: the teacher may speak any language and the
   transcript may be in any language. The transcript is what must be matched.
@@ -92,6 +103,5 @@ CURRENT STATE (updated at every checkpoint)
   (refused here as bot-check circumvention), or retry caption downloads in a loop.
 - Left after that: item 6 (everything pushed, CI green for the last commit).
   Optional: the known wrong match "Three-schema architecture"
-  (docs/Matching Pipeline.md); decide whether backend/.env should set
-  ASR_ENABLED=true for my PC (accurate but slow: about real time per lecture).
+  (docs/Matching Pipeline.md).
 - Next step: the first item not marked [x] in "Finishing pass" in docs/Progress.md.

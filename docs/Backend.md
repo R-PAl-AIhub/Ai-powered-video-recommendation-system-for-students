@@ -64,8 +64,9 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 | `MIGRATE_ON_START` | `true` | Apply database migrations at startup |
 | `OCR_BACKEND` | `auto` | `google`, `rapidocr`, `tesseract` or `none`; `auto` prefers Google Vision when keyed |
 | `GOOGLE_VISION_API_KEY` | unset | Google Vision OCR, which reads handwriting |
-| `ASR_ENABLED` | `false` | Listen to videos (faster-whisper; needs ffmpeg) when they have no captions, when YouTube refuses the caption request, or when the captions are in a language the model cannot read |
-| `ASR_MODEL` | `base` | Whisper size: `tiny`, `base`, `small`, `medium`. `tiny` mis-hears terms in Hindi lectures ("first round of form" for "first normal form"); `small` gets them right and is slower |
+| `ASR_ENABLED` | `true` | Listen to videos (faster-whisper, on this machine; needs ffmpeg) when they have no captions, when YouTube refuses the caption request, or when the captions are in a language the model cannot read. Without ffmpeg it switches itself off with one log line. Set `false` on a server with little memory (the `small` model needs about 1 GB) |
+| `ASR_MAX_MINUTES` | `180` | Longer videos are not listened to |
+| `ASR_MODEL` | `small` | Whisper size: `tiny`, `base`, `small`, `medium`. `tiny` mis-hears terms in Hindi lectures ("first round of form" for "first normal form"); `small` gets them right and is slower |
 | `MIN_VIDEO_SECONDS` | `120` | Shorter clips are never recommended |
 
 ## Run it
@@ -88,8 +89,16 @@ With `frontend/dist` built, the same server serves the app at `/`.
 - **Where a video's words come from, in order** (`_fetch` in `services/pipeline.py`):
   1. YouTube captions (one request per video).
   2. If YouTube refuses that request, or there are no captions, or they are in a
-     language the model cannot read, and `ASR_ENABLED=true`: the video is listened
-     to. The audio comes from a different YouTube service than captions, so a
+     language the model cannot read: the video is listened to (the default since
+     2026-11-12; `ASR_ENABLED=false` turns it off). Listening is slow, so it is a
+     run of its own: the first run reads captions only and builds the path, then
+     `queue_listening` in `services/jobs.py` queues a second job with
+     `options["listen"]`, which listens and rebuilds the path. The screen shows
+     the path meanwhile, with the job's progress line. A video in which nothing
+     is heard (no speech, or longer than `ASR_MAX_MINUTES`) gets the status
+     `silent` and is not listened to again. A single video added from a search is
+     not listened to inside the web request; the next analysis does it.
+     The audio comes from a different YouTube service than captions, so a
      caption block does not stop it (seen on 2026-11-12: captions answered HTTP 429
      all day, audio downloaded normally). After three refusals in a row captions
      are not asked for again in that run; the rest go straight to listening.

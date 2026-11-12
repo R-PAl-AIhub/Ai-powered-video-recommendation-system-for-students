@@ -56,7 +56,7 @@ and edit it there. For a PC, remove the `ENVIRONMENT=production` line. Useful on
 |---|---|
 | `YOUTUBE_API_KEY` | Uses the official YouTube Data API (likes, dates, comment sentiment) |
 | `GOOGLE_VISION_API_KEY` | Better reading of handwritten notes |
-| `ASR_ENABLED=true` | Listens to videos that have no captions, or whose captions YouTube refuses to send (needs ffmpeg; slow). `ASR_MODEL=small` is the accurate choice for lectures not in English |
+| `ASR_ENABLED=false` | Switches off listening. By default a video with no captions, with captions YouTube refuses to send, or with captions in a language the model cannot read is listened to on your PC (needs ffmpeg; about as long as the video). The path is built first and updates by itself when the listening is done. `ASR_MODEL` (default `small`) sets the Whisper size |
 | `RERANKER_MODEL=` (empty) | Less memory, slightly lower matching quality |
 
 ## Other ways to run it (optional)

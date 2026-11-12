@@ -160,6 +160,7 @@ const TITLE_ONLY: Record<string, string> = {
   foreign:
     "This video's captions are in a language the matcher cannot read, so it is matched on its title.",
   pending: "This video's transcript has not been read yet, so it is matched on its title.",
+  silent: "Nothing could be heard in this video, so it is matched on its title.",
 };
 
 /** The way through when YouTube refuses captions: the student opens the video,

@@ -33,7 +33,7 @@ numpy>=2.5,<3
 scikit-learn>=1.9,<2
 fastembed>=0.9.1,<1
 
-# Speech recognition for videos without captions (optional at runtime: ASR_ENABLED).
+# Speech recognition for videos without captions (on by default; ASR_ENABLED=false turns it off).
 # Needs ffmpeg on the PATH.
 faster-whisper>=1.2.1,<2
 

@@ -28,7 +28,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000
 
 # libgl1 and libglib2.0-0: OpenCV, used by RapidOCR. ffmpeg: speech recognition
-# for videos without captions (only used when ASR_ENABLED=true). curl: health check.
+# for videos without captions (on by default; ASR_ENABLED=false turns it off). curl: health check.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 ffmpeg curl \
     && rm -rf /var/lib/apt/lists/*
