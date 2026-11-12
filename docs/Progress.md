@@ -15,8 +15,10 @@ the README is written. The repository is public again and the demo is back onlin
 (2026-11-12). The app now has three ways to get a video's words when YouTube refuses
 captions (listen, paste, retry). Since 2026-11-12 afternoon listening is ON by default
 (owner: "I want the transcript anyhow"): the path is built from captions first, then
-a second job listens to every video left without words and updates the path. See
-"Finishing pass" items 4 and 7 for what is still open.
+a second job listens to every video left without words and updates the path.
+**The finishing pass is complete (2026-11-12): every item is done, and the owner
+only has to double-click `start-waypoint.bat` and sign up.** See "Finishing pass"
+for what was verified and "Known problems" for the weak points that are left.
 
 ## Resume here
 
@@ -115,15 +117,15 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    of 8), Topics, Sources, Search (found, and not found for what the playlist
    lacks). Not checked: phone width (the window could not be resized) and the look
    by eye. The same build was also clicked through locally before that.
-6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
-   `nextAi.txt` final, everything pushed, CI green. On 2026-11-12:
-   `backend/data/app.db` has 0 users and 0 courses; CI is green for `e8c1b7e`.
-   The code of item 4 (listen, paste) was committed and pushed on 2026-11-12 at
-   about 14:45 after the tests, the gate, the build and a browser check of the
-   paste box. **Open: the Hindi playlist result (item 4), then CI green for the
-   last commit.**
+6. [x] Final state (2026-11-12, about 16:35): `backend/data/app.db` has 0 users
+   and 0 courses (no test account); no server and no Python process is left
+   running; the working tree is clean and pushed. CI is green in every job (lint
+   and tests on SQLite, tests on PostgreSQL, evaluation gate, frontend build,
+   Docker image) for `78ec77b`, the last commit that changes code; the commit
+   after it changes these notes and `nextAi.txt` only. The demo answers HTTP 200.
+   What the owner does: double-click `start-waypoint.bat` and sign up.
 
-7. [~] Listening by default (owner, 2026-11-12 14:40: "if there is no transcript
+7. [x] Listening by default (owner, 2026-11-12 14:40: "if there is no transcript
    download the audio and extract the transcript out of it, I want the transcript
    anyhow"; everything local, on his PC). Built: `ASR_ENABLED` defaults to `true`,
    `ASR_MODEL` to `small`, `ASR_MAX_MINUTES` to 180; the first job reads captions
@@ -147,11 +149,15 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    when the app will listen by itself (`listening` flag per video; quiet note on
    the Path row, "Nothing for you to do" on Sources). Whisper gets the title and
    subject as a spelling hint. 210 tests pass, lint clean, gate PASS, frontend
-   builds. Not yet seen in a browser: the new quiet wording. The Chrome
-   extension disconnected, so it was checked another way: the real server marks
-   all 9 caption-less videos of the demo copy `listening: true`, and the built
-   files contain the new sentences. To see it: start the app on a copy of
-   `backend/data/demo.db` and open Sources and Path.
+   builds. The quiet wording was seen in a browser (2026-11-12, about
+   16:20, with the Chrome DevTools tools because the Claude in Chrome extension
+   had disconnected) on a throwaway copy of the demo database: Sources says "9
+   videos without captions. The app listens to them by itself (about as long as
+   the videos) and then updates the path. Nothing for you to do."; three Path
+   rows say "Matched on its title for now. The app is listening to this video
+   and will update the path by itself."; no "Paste its transcript" link is
+   shown; 29 rows stay playable. Read as page text, not by eye. Server stopped,
+   copy deleted.
    The owner also pointed to `github.com/lifesized/youtube-transcriber`: it uses
    the same order (captions, then Whisper on the machine). Nothing was copied
    from it (separate Node app, AGPL-3.0, its quick path is a cloud service); see
@@ -371,9 +377,6 @@ needed, because startup now upgrades old databases automatically.
   real videos.
 - Study ranges can start late inside the right lecture, and "Need for
   normalization" is a wrong gap on the Hindi playlist (see [[Matching Pipeline]]).
-- The new quiet wording ("The app is listening to this video...") was not seen in
-  a browser: the Chrome extension disconnected. The server's answers and the built
-  files were checked instead.
 - YouTube refuses caption downloads from this PC (HTTP 429, 2026-11-11 evening to at
   least 2026-11-12 midday). Listening and pasting work around it.
 - The YouTube Data API backend is written but has never run against the real API
@@ -389,7 +392,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-12 | (this commit) | Hindi playlist finished and judged against its transcripts (item 4 done): 15 of 21 topics matched, all on a lecture that teaches the topic, 4 starting late; 5 right gaps, 1 wrong. Two more fixes from it: a title term heard as a sound-alike word is put back ("closer" to "closure", `restore_title_terms`), and a title that names the whole topic gets the full title bonus (1NF now points to its own lecture). 218 tests pass, lint clean, gate 25/25, the other two real courses unchanged. |
+| 2026-11-12 | (this commit) | Finishing pass closed: quiet wording seen in a browser (item 7 done); CI green in every job for `78ec77b`; `app.db` empty, nothing left running (item 6 done). Notes only. |
+| 2026-11-12 | `78ec77b` | Hindi playlist finished and judged against its transcripts (item 4 done): 15 of 21 topics matched, all on a lecture that teaches the topic, 4 starting late; 5 right gaps, 1 wrong. Two more fixes from it: a title term heard as a sound-alike word is put back ("closer" to "closure", `restore_title_terms`), and a title that names the whole topic gets the full title bonus (1NF now points to its own lecture). 218 tests pass, lint clean, gate 25/25, the other two real courses unchanged. |
 | 2026-11-12 | `96bfbc6` | From judging the Hindi playlist against its transcripts: the reranker may not overrule a nearly certain first stage that the transcript backs ("Insertion deletion and update anomalies" was a gap although lecture 24 teaches it); Whisper gets the title and subject as a spelling hint ("closure" had come out as "closer"). Quieter screens: no request to paste when the app listens by itself. Two-step listening seen working in the real app with a real video. 210 tests pass, lint clean, gate 25/25, the three cached real courses differ only in the intended topic, frontend builds. Demo republished. |
 | 2026-11-12 | `66a65e5` | Listening is the default (owner's instruction): captions first and the path, then a second job listens to the videos left without words and updates the path; status `silent`; switches itself off without ffmpeg; `ASR_MODEL=small`, `ASR_MAX_MINUTES=180`; "Nothing could be heard" wording in the paste box. 208 tests pass, lint clean, gate 25/25, frontend builds. Not yet seen in the real app with a real video. Demo republished. |
 | 2026-11-12 | `505c0c0` | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |

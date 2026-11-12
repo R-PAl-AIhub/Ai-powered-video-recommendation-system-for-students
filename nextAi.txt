@@ -58,11 +58,12 @@ USEFUL FACTS
 - Keep this file up to date so another AI can take over at any moment.
 
 CURRENT STATE (updated at every checkpoint)
-- Date: 2026-11-12, about 16:10
-- Finishing pass (docs/Progress.md): items 1, 2, 3, 4 and 5 are done. Item 7
-  (listening by default) is built, tested and seen working in the real app; one
-  small check is left (below). Item 6 is the last step: everything pushed and CI
-  green for the last commit.
+- Date: 2026-11-12, about 16:35
+- THE FINISHING PASS IS COMPLETE. Every item (1 to 7) in docs/Progress.md is
+  marked [x] with what was verified. I only have to double-click
+  start-waypoint.bat and sign up. Nothing is left running; backend/data/app.db is
+  empty; everything is pushed; CI is green in every job for 78ec77b, the last
+  commit that changes code (the commit after it changes notes only).
 - My instructions, all still valid:
   * All work stays inside this project folder and runs locally on my PC.
   * If a video has no transcript, the app must download the audio and make the
@@ -92,19 +93,15 @@ CURRENT STATE (updated at every checkpoint)
 - Verified for the last commit: 218 tests pass, ruff clean, evaluation gate PASS
   (25/25), npm run build passes, the three cached real courses were compared
   before and after each matching change.
-- LEFT TO DO, in order:
-  1. Read CI for the last commit on main (curl on api.github.com, see
-     docs/Progress.md item 1). If it is green, mark item 6 [x].
-  2. See the new quiet wording in a browser (the Claude in Chrome extension
-     disconnected before this could be done): copy backend/data/demo.db to
-     backend/data/tmp/check.db, start the server on it
-     (DATABASE_URL=sqlite:///./data/tmp/check.db DATA_DIR=./data), open the
-     course, look at Sources ("Nothing for you to do") and at a Path row of a
-     video without captions ("The app is listening to this video..."). Stop the
-     server, delete the copy. Then mark item 7 [x].
-  3. Optional, known weak points (docs/Matching Pipeline.md): study ranges that
-     start late inside the right lecture; the wrong gap "Need for normalization";
-     the wrong match "Three-schema architecture".
+- LEFT TO DO: nothing required. Optional, known weak points
+  (docs/Matching Pipeline.md and "Known problems" in docs/Progress.md): study
+  ranges that start late inside the right lecture; the wrong gap "Need for
+  normalization" on the Hindi playlist; the wrong match "Three-schema
+  architecture" on the English database playlist; a multilingual embedding
+  model is still unverified on real videos; the look of the screens was checked
+  as text and behaviour, not by eye (screenshots time out here).
+- If I ask for a new change: read docs/Project Map.md and docs/Progress.md first,
+  then follow the RULES above.
 - Do not: call YouTube's transcript service from a script posing as a browser
   (refused here as bot-check circumvention), or retry caption downloads in a loop.
 - Throwaway scripts of this session are in backend/data/tmp/ (not in git). They
