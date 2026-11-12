@@ -18,10 +18,11 @@ import {
   type Path,
   type Recommendation,
   type Topic,
+  type Video,
   type YouTubeResult,
 } from "../api";
 import { clock, compact, cx, plural, span } from "../format";
-import { Button, EmptyState, Notice, Skeleton } from "../ui";
+import { Button, EmptyState, Notice, Skeleton, TextArea } from "../ui";
 import { GapRow, KnownRow, PathRow } from "./parts";
 import { errorText, type PlayItem, type TabProps } from "./Workspace";
 
@@ -34,6 +35,7 @@ export function usePathChange(projectId: number) {
       client.setQueryData(["path", projectId], path);
       client.invalidateQueries({ queryKey: ["project", projectId] });
       client.invalidateQueries({ queryKey: ["projects"] });
+      client.invalidateQueries({ queryKey: ["untranscribed", projectId] });
     },
   });
 }
@@ -151,6 +153,121 @@ function Alternate({
   );
 }
 
+/** Why a video was matched on its title alone, in the student's words. */
+const TITLE_ONLY: Record<string, string> = {
+  error: "YouTube would not send this video's transcript, so it is matched on its title for now.",
+  none: "This video has no captions, so it is matched on its title.",
+  foreign:
+    "This video's captions are in a language the matcher cannot read, so it is matched on its title.",
+  pending: "This video's transcript has not been read yet, so it is matched on its title.",
+};
+
+/** The way through when YouTube refuses captions: the student opens the video,
+ *  copies the text of "Show transcript" and pastes it here. */
+function TranscriptPaste({
+  projectId,
+  video,
+  locked,
+  change,
+}: {
+  projectId: number;
+  video: Video;
+  locked: boolean;
+  change: ReturnType<typeof usePathChange>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const reason = TITLE_ONLY[video.transcript_status];
+  if (!reason) return null;
+  const watch = `https://www.youtube.com/watch?v=${video.youtube_id}`;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-field border border-dashed border-line-strong px-3 py-2.5">
+      <p className="text-[13px] leading-relaxed text-soft">
+        {reason}{" "}
+        {open ? null : (
+          <button
+            type="button"
+            className="font-medium text-accent-ink underline-offset-2 hover:underline"
+            onClick={() => setOpen(true)}
+          >
+            Paste its transcript
+          </button>
+        )}
+      </p>
+      {open ? (
+        <>
+          <TextArea
+            label="Transcript"
+            hint="On YouTube, choose “Show transcript” under the description, select all of it, copy, and paste here. The times can stay in."
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder={"0:00\nToday we are going to discuss…"}
+            className="min-h-28 font-mono text-[13px]"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              busy={change.isPending}
+              disabled={locked || text.trim().length < 20}
+              onClick={() =>
+                change.mutate(() => api.pasteTranscript(projectId, video.id, text), {
+                  onSuccess: () => {
+                    setOpen(false);
+                    setText("");
+                  },
+                })
+              }
+            >
+              Use this transcript
+            </Button>
+            <Button variant="quiet" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <a
+              href={watch}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto text-[13px] text-soft underline underline-offset-2 hover:text-ink"
+            >
+              Open the video on YouTube
+            </a>
+          </div>
+          {change.error ? <Notice tone="danger">{errorText(change.error)}</Notice> : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Every video still matched on its title alone, with a place to paste its
+ *  transcript. Shown under the playlists, because such a video may not have won
+ *  any topic and so has no row in the path. */
+export function UntranscribedVideos({ projectId, locked }: { projectId: number; locked: boolean }) {
+  const change = usePathChange(projectId);
+  const { data: videos } = useQuery({
+    queryKey: ["untranscribed", projectId],
+    queryFn: () => api.untranscribed(projectId),
+  });
+  if (!videos?.length) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-soft">
+        {plural(videos.length, "video")} matched on the title only. The path is more exact with
+        what is said in them.
+      </p>
+      <ul className="flex flex-col gap-3">
+        {videos.map((video) => (
+          <li key={video.id} className="flex flex-col gap-1.5">
+            <p className="truncate text-sm font-medium">{video.title || video.youtube_id}</p>
+            <TranscriptPaste projectId={projectId} video={video} locked={locked} change={change} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function MatchedControls({
   projectId,
   topic,
@@ -176,6 +293,7 @@ function MatchedControls({
 
   return (
     <div className="flex flex-col gap-2">
+      <TranscriptPaste projectId={projectId} video={pick.video} locked={locked} change={change} />
       <div className="flex flex-wrap items-center gap-1">
         {pick.feedback === "correct" ? (
           <>

@@ -139,7 +139,8 @@ class _Fetched:
     meta: VideoMeta | None
     transcript: Transcript | None
     status: str  # ok | none | error
-    blocked: bool = False
+    blocked: bool = False  # nothing could be fetched; try again later
+    refused: bool = False  # YouTube refused the caption request (even if we then listened)
 
 
 def _is_block(exc: Exception) -> bool:
@@ -183,11 +184,15 @@ def _fetch_one(
     duration_s: int = 0,
 ) -> _Fetched:
     """Fetch one video (see ``_fetch``) and report to ``watch`` whether YouTube
-    refused it. Does nothing once the watch says to stop."""
-    if watch.stopped():  # YouTube started refusing requests; leave this one for a retry
-        return _Fetched(video_id, None, None, "error", blocked=True)
+    refused it. Once the watch says to stop, captions are not asked for any more:
+    the video is listened to if speech recognition is on, and otherwise left for
+    a retry."""
+    if watch.stopped():
+        if get_transcriber() is None:
+            return _Fetched(video_id, None, None, "error", blocked=True)
+        return _fetch(client, video_id, youtube_id, has_description, duration_s, captions=False)
     fetched = _fetch(client, video_id, youtube_id, has_description, duration_s)
-    watch.record(fetched.blocked)
+    watch.record(fetched.refused)
     return fetched
 
 
@@ -197,25 +202,48 @@ def _fetch(
     youtube_id: str,
     has_description: bool,
     duration_s: int = 0,
+    captions: bool = True,
 ) -> _Fetched:
     """Fetch one video's transcript, and its details only if they are needed.
 
     Each video costs one caption request. The heavier details request (the one
     YouTube's bot detection watches most closely) is made only for videos without
     captions, where the description is the only text there is to match on.
+
+    When YouTube refuses the caption request (or ``captions`` is false because
+    it has been refusing them) and speech recognition is on, the video is
+    listened to instead: the audio comes from a different YouTube service, which
+    a caption block does not cover.
     """
-    try:
-        transcript = client.fetch_transcript(youtube_id)
-    except Exception as exc:
-        log.info("transcript failed for %s: %s", youtube_id, type(exc).__name__)
-        return _Fetched(video_id, None, None, "error", blocked=_is_block(exc))
-    if transcript is None and (transcriber := get_transcriber()) is not None:
-        try:  # no captions: listen to the video instead
-            transcript = transcriber.transcribe(youtube_id, duration_s)
+    transcriber = get_transcriber()
+    transcript = None
+    refused = not captions
+    if captions:
+        try:
+            transcript = client.fetch_transcript(youtube_id)
         except Exception as exc:
-            if _is_block(exc):
-                return _Fetched(video_id, None, None, "error", blocked=True)
+            log.info("transcript failed for %s: %s", youtube_id, type(exc).__name__)
+            refused = _is_block(exc)
+            if not refused or transcriber is None:
+                return _Fetched(video_id, None, None, "error", blocked=refused, refused=refused)
+    # Captions in a language the model cannot read are as good as none when the
+    # video can be listened to: speech recognition translates as it listens.
+    unreadable = transcript is not None and not transcript_usable(transcript)
+    if (transcript is None or unreadable) and transcriber is not None:
+        heard = None
+        try:  # no usable captions, or captions refused: listen to the video instead
+            heard = transcriber.transcribe(youtube_id, duration_s)
+        except Exception as exc:
+            if _is_block(exc) and transcript is None:
+                return _Fetched(video_id, None, None, "error", blocked=True, refused=refused)
             log.info("speech recognition failed for %s: %s", youtube_id, exc)
+        if heard is not None:
+            transcript = heard
+        if transcript is None and refused:
+            # Could not listen either; the captions may still exist, so retry later.
+            return _Fetched(video_id, None, None, "error", blocked=True, refused=True)
+        if transcript is not None and refused:
+            return _Fetched(video_id, None, transcript, "ok", refused=True)
     meta = None
     if transcript is None and not has_description:
         try:
@@ -318,7 +346,9 @@ def fetch_videos(
     if get_embedder().multilingual:
         wanted.append("foreign")  # a multilingual model can use these after all
     if get_transcriber() is not None:
-        wanted.append("none")  # no captions, but speech recognition can listen now
+        # No captions, or captions in an unreadable language: speech recognition
+        # can listen now.
+        wanted += ["none", "foreign"]
     pending = list(
         db.scalars(
             select(Video).where(
@@ -702,6 +732,22 @@ def ingest_single_video(db: Session, project: Project, youtube_id: str) -> Video
     return video
 
 
+def set_video_transcript(
+    db: Session, project: Project, video: Video, transcript: Transcript
+) -> None:
+    """Give a video a transcript that did not come from YouTube's caption
+    service (pasted by the student, or imported), and index it for matching."""
+    apply_fetched(db, video, _Fetched(video.id, None, transcript, "ok"))
+    db.flush()
+    embedder = get_embedder()
+    vectors = embedder.embed_passages([c.text for c in video.chunks])
+    for chunk, vector in zip(video.chunks, vectors, strict=True):
+        chunk.embedding = to_blob(vector)
+    video.embedded_with = embedder.name
+    db.flush()
+    invalidate_index(project.id)
+
+
 __all__ = [
     "Playlist",
     "Document",
@@ -710,4 +756,5 @@ __all__ = [
     "ingest_single_video",
     "meta_text",
     "run_pipeline",
+    "set_video_transcript",
 ]

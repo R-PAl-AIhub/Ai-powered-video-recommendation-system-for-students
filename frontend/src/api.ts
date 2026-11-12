@@ -333,6 +333,9 @@ export const api = {
     request<Path>("DELETE", `${project(id)}/feedback?topic_id=${topicId}&video_id=${videoId}`),
   setWatched: (id: number, videoId: number, watched: boolean) =>
     request<void>("PUT", `${project(id)}/videos/${videoId}/watched`, { watched }),
+  untranscribed: (id: number) => request<Video[]>("GET", `${project(id)}/videos/untranscribed`),
+  pasteTranscript: (id: number, videoId: number, text: string) =>
+    request<Path>("PUT", `${project(id)}/videos/${videoId}/transcript`, { text }),
   addTopic: (id: number, name: string, afterId?: number) =>
     request<Path>("POST", `${project(id)}/topics`, { name, after_id: afterId ?? null }),
   updateTopic: (id: number, topicId: number, body: { name?: string; covered?: boolean }) =>

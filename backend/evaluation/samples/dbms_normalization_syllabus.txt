@@ -1,0 +1,15 @@
+Database Management Systems
+Code: PCC-CS601    Contacts: 3L    Credits: 3
+
+Unit 1: Relational Database Design (10L)
+Need for normalization, Insertion deletion and update anomalies, Functional dependency,
+Trivial and non-trivial functional dependency, Closure of a set of attributes,
+Finding candidate keys, First normal form (1NF), Partial dependency,
+Second normal form (2NF), Transitive dependency, Third normal form (3NF),
+Boyce Codd normal form (BCNF), Dependency preserving decomposition,
+Lossless join decomposition, Multivalued dependency and fourth normal form (4NF),
+Minimal cover of functional dependencies.
+
+Unit 2: Transactions and Storage (8L)
+ACID properties of a transaction, Conflict serializability, Two phase locking protocol,
+B+ tree indexing, Entity relationship model.

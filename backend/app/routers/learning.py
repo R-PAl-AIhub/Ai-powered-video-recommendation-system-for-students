@@ -21,13 +21,16 @@ from ..schemas import (
     TopicIn,
     TopicOrderIn,
     TopicPatch,
+    TranscriptIn,
+    VideoOut,
     WatchedIn,
     YouTubeResult,
     YouTubeSearchIn,
 )
 from ..services.matching import Match
+from ..services.pasted import parse_pasted_transcript
 from ..services.path import build_path, build_questions, video_out, video_url
-from ..services.pipeline import ingest_single_video
+from ..services.pipeline import ingest_single_video, set_video_transcript
 from ..services.readings import match_readings, prepare_passages
 from ..services.recommend import (
     playlist_topic_order,
@@ -268,6 +271,41 @@ def set_watched(
     video = _video(db, project, video_id)
     video.watched_at = utcnow() if body.watched else None
     db.commit()
+
+
+@router.get("/videos/untranscribed", response_model=list[VideoOut])
+def videos_without_transcript(
+    project: Project = Depends(owned_project), db: Session = Depends(get_db)
+):
+    """Videos matched on their title alone because no usable transcript was
+    obtained, so the student can paste one. Playlist order."""
+    playlists = {p.id: p for p in project.playlists}
+    videos = db.scalars(
+        select(Video)
+        .where(Video.project_id == project.id, Video.transcript_status != "ok")
+        .order_by(Video.playlist_id, Video.playlist_position, Video.id)
+    )
+    return [video_out(video, playlists) for video in videos]
+
+
+@router.put("/videos/{video_id}/transcript", response_model=PathOut)
+def paste_transcript(
+    video_id: int,
+    body: TranscriptIn,
+    project: Project = Depends(idle_project),
+    db: Session = Depends(get_db),
+):
+    """Use a transcript the student copied from YouTube ("Show transcript") for
+    this video. It is the way through when YouTube refuses caption requests: the
+    text on the student's own screen is always there."""
+    video = _video(db, project, video_id)
+    transcript = parse_pasted_transcript(body.text, video.duration_s)
+    if transcript is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "That text has no words to use as a transcript"
+        )
+    set_video_transcript(db, project, video, transcript)
+    return _refresh(db, project)
 
 
 # ----------------------------------------------------------------------- search

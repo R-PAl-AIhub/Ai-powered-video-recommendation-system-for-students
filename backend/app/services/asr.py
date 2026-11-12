@@ -92,7 +92,10 @@ class WhisperTranscriber:
         settings = get_settings()
         if duration_s and duration_s > settings.asr_max_minutes * 60:
             return None
-        with tempfile.TemporaryDirectory(prefix="asr-") as folder:
+        # The audio is kept inside the app's own data folder, and removed afterwards.
+        scratch = Path(settings.data_dir) / "tmp"
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="asr-", dir=scratch) as folder:
             audio = self._download_audio(video_id, folder)
             if audio is None:
                 return None

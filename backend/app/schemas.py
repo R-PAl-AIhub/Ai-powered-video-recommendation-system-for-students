@@ -337,6 +337,10 @@ class YouTubeResult(BaseModel):
     in_project: bool
 
 
+class TranscriptIn(BaseModel):
+    text: str = Field(min_length=20, max_length=600_000)  # copied from "Show transcript"
+
+
 class AddVideoIn(BaseModel):
     video: str = Field(min_length=5, max_length=500)  # YouTube URL or id
     topic_id: int | None = None  # pin the video to this topic

@@ -5,7 +5,7 @@ Back to [[Project Map]].
 ## Commands (run in `backend/`)
 
 ```bash
-.venv/Scripts/python -m pytest                              # 191 tests, no network, about a minute
+.venv/Scripts/python -m pytest                              # 204 tests, no network, about a minute
 .venv/Scripts/python -m ruff check app evaluation tests     # lint
 .venv/Scripts/python -m evaluation.run --backend fastembed  # quality gate with the real models
 .venv/Scripts/python -m evaluation.run --backend hash       # quality gate with the lexical fallback
@@ -37,6 +37,15 @@ In `frontend/`: `npm run build` (type-check and build).
 - **`tests/test_question_fallback.py`**: a past question with no direct answer is
   answered where its topic is taught, stays unanswered when the topic is a gap,
   and a direct answer is kept.
+- **`tests/test_listen_when_blocked.py`**: captions refused, so the videos are
+  listened to; captions are not asked for again after three refusals; a video
+  that cannot be heard is retried later; captions in an unreadable language are
+  listened to, or marked `foreign` when listening is off.
+- **`tests/test_pasted_transcript.py`**: text copied from "Show transcript" becomes
+  timed segments (times on their own line or with the words, no times at all,
+  prose that only mentions a time), language from the script, and the paste route
+  (rescues a refused video, is not fetched again, refuses empty text and other
+  people's videos).
 - Together: 90% line coverage of `app/` (`documents.py` 97%, `ocr.py` 100%,
   `jobs.py` 95%, `youtube.py` 99%).
 - **`evaluation/os_course.py`**: a small labelled course (original transcripts, a
@@ -48,10 +57,14 @@ In `frontend/`: `npm run build` (type-check and build).
   [[Matching Pipeline]].
 - **`evaluation/live.py`**: runs the real pipeline on real YouTube playlists and
   prints the path. Caches into `backend/data/live-<name>.db`, so re-runs do not
-  contact YouTube. `--raw` shows both stages' scores per topic.
+  contact YouTube. `--raw` shows both stages' scores per topic. `--transcripts
+  folder` loads `<video id>.txt` files copied from YouTube's "Show transcript"
+  first; with `ASR_ENABLED=true` the rest are listened to.
 - **`evaluation/rerank_study.py`**: compares rerankers and phrasings on 60 labelled
   pairs from the cached real playlist.
 - **`evaluation/samples/os_syllabus.txt`**: a realistic syllabus to try.
+- **`evaluation/samples/dbms_normalization_syllabus.txt`**: syllabus for the Hindi
+  normalization playlist; its second unit is deliberately not in the playlist.
 
 ## Real-data cache
 

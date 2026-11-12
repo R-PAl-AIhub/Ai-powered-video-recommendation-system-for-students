@@ -27,7 +27,7 @@ import {
 import { cx, embedUrl, fileSize, plural, studyRange, until } from "../format";
 import { Button, Dialog, Field, IconButton, Notice, Skeleton, TextArea } from "../ui";
 import { FocusTab, QuestionsTab, SearchTab, TopicsTab } from "./MoreTabs";
-import { PathTab } from "./PathTab";
+import { PathTab, UntranscribedVideos } from "./PathTab";
 import { AppBar } from "./Projects";
 
 /** Something to play: a video, where to start, and what it is for. */
@@ -331,6 +331,7 @@ function SourcesTab({ project, busy }: TabProps) {
             Add playlist
           </Button>
         </form>
+        <UntranscribedVideos projectId={project.id} locked={busy} />
       </section>
 
       <section className="flex flex-col gap-5">

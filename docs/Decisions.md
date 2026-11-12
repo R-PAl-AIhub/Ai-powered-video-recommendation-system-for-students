@@ -18,6 +18,7 @@ re-argued. Change one only with new evidence.
 | Videos under 2 minutes are never recommended | On a real playlist, 40 to 78 second promo clips were winning topics on their descriptions alone. |
 | "X: Definition" is matched as "X"; abbreviations spelled out from the subject | Real syllabus wording that both models handled badly. |
 | One caption request per video; details only when there are no captions | YouTube blocked this machine after a burst of about 300 requests. |
+| When YouTube refuses captions: listen (if enabled), else let the student paste the transcript; never pose as a browser | Found 2026-11-12: captions refused for a day (HTTP 429) while audio and the on-screen transcript stayed available. Imitating a browser from the server is evading YouTube's bot check, so it is not done. |
 | Uploaded files are deleted once their text is extracted | Privacy, and it works on hosts with temporary disks. |
 | English models by default, multilingual by configuration | Small and accurate for the common case; YouTube's own translation covers many other-language videos. To be revisited once tested on real non-English playlists. |
 | Feedback is undone from a bar at the bottom of the screen, not from the row | Feedback can turn a row into a different video, a gap or a known topic, so a control inside the row would disappear with the change. |

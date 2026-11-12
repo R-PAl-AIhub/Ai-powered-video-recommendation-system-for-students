@@ -17,6 +17,7 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 | `routers/projects.py` | Projects, playlists, documents, start analysis, job status |
 | `routers/learning.py` | Path, questions, topics, feedback, watched, search, YouTube search, add video |
 | `services/youtube.py` | Playlists, captions, search; yt-dlp or the Data API; request pacing |
+| `services/pasted.py` | A transcript the student copied from YouTube's "Show transcript" and pasted in: times, text, language from the script |
 | `services/documents.py`, `ocr.py` | PDF, DOCX, text, images; OCR for scans |
 | `services/topics.py` | Syllabus parsing, exam question splitting, notes chunking |
 | `services/embeddings.py`, `rerank.py` | The two models, with fallbacks |
@@ -40,6 +41,8 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 - `POST /projects/{id}/process`, `GET /projects/{id}/job`
 - `GET /projects/{id}/path`, `GET /projects/{id}/questions`, `GET /projects/{id}/search?q=`
 - `POST|DELETE /projects/{id}/feedback`, `PUT /projects/{id}/videos/{vid}/watched`
+- `GET /projects/{id}/videos/untranscribed` (videos matched on the title only),
+  `PUT /projects/{id}/videos/{vid}/transcript` `{text}` (use a pasted transcript; returns the new path)
 - `POST /projects/{id}/topics`, `PATCH|DELETE /projects/{id}/topics/{tid}`, `PUT /projects/{id}/topics/order`
 - `POST /projects/{id}/youtube/search`, `POST /projects/{id}/videos`
 - Outside `/api`: `/healthz`, `/readyz`, `/metrics`. Interactive docs at `/api/docs` (not in production).
@@ -61,8 +64,8 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 | `MIGRATE_ON_START` | `true` | Apply database migrations at startup |
 | `OCR_BACKEND` | `auto` | `google`, `rapidocr`, `tesseract` or `none`; `auto` prefers Google Vision when keyed |
 | `GOOGLE_VISION_API_KEY` | unset | Google Vision OCR, which reads handwriting |
-| `ASR_ENABLED` | `false` | Transcribe videos without captions (faster-whisper; needs ffmpeg) |
-| `ASR_MODEL` | `base` | Whisper size: `tiny`, `base`, `small`, `medium` |
+| `ASR_ENABLED` | `false` | Listen to videos (faster-whisper; needs ffmpeg) when they have no captions, when YouTube refuses the caption request, or when the captions are in a language the model cannot read |
+| `ASR_MODEL` | `base` | Whisper size: `tiny`, `base`, `small`, `medium`. `tiny` mis-hears terms in Hindi lectures ("first round of form" for "first normal form"); `small` gets them right and is slower |
 | `MIN_VIDEO_SECONDS` | `120` | Shorter clips are never recommended |
 
 ## Run it
@@ -82,6 +85,21 @@ With `frontend/dist` built, the same server serves the app at `/`.
   got this machine blocked for hours ("Sign in to confirm you're not a bot"). Hence
   the pacing, the one-request-per-video design, stop-after-three-refusals, and
   scheduled retries. Do not remove them.
+- **Where a video's words come from, in order** (`_fetch` in `services/pipeline.py`):
+  1. YouTube captions (one request per video).
+  2. If YouTube refuses that request, or there are no captions, or they are in a
+     language the model cannot read, and `ASR_ENABLED=true`: the video is listened
+     to. The audio comes from a different YouTube service than captions, so a
+     caption block does not stop it (seen on 2026-11-12: captions answered HTTP 429
+     all day, audio downloaded normally). After three refusals in a row captions
+     are not asked for again in that run; the rest go straight to listening.
+  3. A transcript pasted by the student (`PUT .../videos/{vid}/transcript`). It is
+     stored as `ok` and never fetched again.
+  4. Otherwise the title and description, with an automatic retry later.
+  Not built, on purpose: calling YouTube's transcript-panel service from the
+  server. It answers a browser, but a script must pose as one, and that is
+  working around YouTube's bot check.
+- Audio for listening is downloaded into `DATA_DIR/tmp` and deleted after each video.
 - **Schema changes go through Alembic.** `app/migrate.py` runs `upgrade head` at
   startup (or `python -m app.migrate` in a deploy step with `MIGRATE_ON_START=false`).
   To change the schema: edit `models.py`, run

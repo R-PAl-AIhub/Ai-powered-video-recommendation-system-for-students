@@ -7,6 +7,10 @@
 This talks to YouTube, so it is a manual tool rather than part of CI. Results are
 cached in data/live-<name>.db, so a second run only repeats the matching - handy
 when tuning calibration. ``--search "topic"`` runs extra topic searches.
+
+``--transcripts folder`` loads ``<video id>.txt`` files (text copied from
+YouTube's "Show transcript" panel) before the run, for videos whose captions
+YouTube refuses to send. ``ASR_ENABLED=true`` listens to whatever is left.
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ def main() -> int:
     parser.add_argument("--notes")
     parser.add_argument("--limit", type=int, default=80, help="max videos per playlist")
     parser.add_argument("--search", action="append", default=[])
+    parser.add_argument("--transcripts", help="folder of <video id>.txt pasted transcripts")
     parser.add_argument("--raw", action="store_true", help="show raw cosine diagnostics")
     args = parser.parse_args()
 
@@ -52,10 +57,11 @@ def main() -> int:
     from app.models import Document, Playlist, Project, RerankScore, User, Video, VideoChunk
     from app.services.embeddings import from_blob, get_embedder
     from app.services.matching import get_index, hybrid_scores, video_relevance
+    from app.services.pasted import parse_pasted_transcript
     from app.services.path import build_path
-    from app.services.pipeline import run_pipeline
+    from app.services.pipeline import run_pipeline, set_video_transcript, sync_playlists
     from app.services.recommend import search_project, unit_title
-    from app.services.youtube import parse_playlist_id
+    from app.services.youtube import get_youtube_client, parse_playlist_id
 
     init_db()
     with SessionLocal() as db:
@@ -99,6 +105,26 @@ def main() -> int:
             if stage != last["stage"]:
                 last["stage"] = stage
                 print(f"  [{time.monotonic() - started:6.1f}s] {stage}: {message}", flush=True)
+
+        if args.transcripts:
+            sync_playlists(db, project, get_youtube_client(), report, [])
+            loaded = 0
+            for video in db.scalars(select(Video).where(Video.project_id == project.id)):
+                source = Path(args.transcripts) / f"{video.youtube_id}.txt"
+                if video.transcript_status == "ok" or not source.exists():
+                    continue
+                pasted = parse_pasted_transcript(
+                    source.read_text(encoding="utf-8"), video.duration_s
+                )
+                if pasted is not None:
+                    set_video_transcript(db, project, video, pasted)
+                    loaded += 1
+                    print(
+                        f"  pasted transcript: {video.youtube_id} [{pasted.language}] "
+                        f"{len(pasted.segments)} lines -> {video.transcript_status}"
+                    )
+            db.commit()
+            print(f"  {loaded} pasted transcripts loaded", flush=True)
 
         warnings = run_pipeline(db, project, report, {"reextract": True}).warnings
         elapsed = time.monotonic() - started

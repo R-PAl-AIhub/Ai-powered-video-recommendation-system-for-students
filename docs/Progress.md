@@ -11,8 +11,9 @@ Last updated: 2026-11-12.
 The backend and frontend are complete, tested and browser-checked, with migrations.
 Study material beyond videos is built, with its UI. The read-only demo is live on
 GitHub Pages, the owner runs the full app on his PC with `start-waypoint.bat`, and
-the README is written. **On 2026-11-12 the online demo answers 404, because the
-repository is no longer publicly visible; the owner must decide (see "Resume here").**
+the README is written. The repository is public again and the demo is back online
+(2026-11-12). The app now has three ways to get a video's words when YouTube refuses
+captions (listen, paste, retry); see "Finishing pass" item 4 for what is still open.
 
 ## Resume here
 
@@ -34,23 +35,14 @@ repository is no longer publicly visible; the owner must decide (see "Resume her
 has to double-click and sign up. Reflect every change in these notes, and keep
 `nextAi.txt` (root) current: it is a copy-paste prompt for another AI to continue.**
 
-### Blocked on the owner (found 2026-11-12)
+### Repository visibility (resolved 2026-11-12)
 
-The repository cannot be seen without a login any more: the repository page on
-github.com and its address on api.github.com both answer 404 to an anonymous
-request, while `git ls-remote` with the stored login still lists `main` and
-`gh-pages`. So it was made private (or access was restricted) after 2026-11-11.
-Two effects:
-
-- The demo link answers 404 ("Site not found"). On a free GitHub account, Pages
-  serves only public repositories. The `gh-pages` branch is still there
-  (`5c9aee2`); nothing needs to be rebuilt.
-- CI results can no longer be read with plain `curl` (item 6).
-
-Nothing was changed about this: repository visibility is the owner's choice. To
-bring the demo back, either make the repository public again (Settings > General >
-Danger Zone > Change visibility), or publish the demo from a separate public
-repository. Then do items 5 and 6.
+The repository was private for some hours on 2026-11-12, which switched GitHub
+Pages off (demo 404) and hid CI from plain `curl`. The owner made it public again at
+about 09:55. Pages stays off after that until something is pushed to `gh-pages`:
+`bash frontend/deploy-pages.sh` brought the demo back (HTTP 200 a minute later).
+If the demo is ever 404 again, check `"private"` and `"has_pages"` in
+`curl -s https://api.github.com/repos/R-PAl-AIhub/Ai-powered-video-recommendation-system-for-students`.
 
 ### Finishing pass
 
@@ -89,43 +81,58 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    unanswered when the topic is a gap, a direct answer is kept).
 4. [~] More real playlists. Done: a database-systems playlist (see [[Matching
    Pipeline]], "Results"), judged against the transcripts, not the titles. Its
-   transcripts are kept in `backend/data/live-dbms.db` (not in git) for offline
-   tuning. **Not done: a non-English playlist with real captions.** A Hindi
-   playlist (`PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW`) was tried at 20:01, but YouTube
-   had started refusing caption requests from this PC (IpBlocked, also for a
-   video that worked an hour before). The app handled it as designed: warning,
-   title-only path (7 of 13 matched), automatic retry scheduled. Tried again on
-   2026-11-12 at 09:10: still blocked. Listing a playlist and listing a video's
-   caption tracks work; downloading the caption text answers HTTP 429 (the same
-   through youtube-transcript-api and through yt-dlp, so it is this PC's address,
-   not the library). Do not retry in a loop: each attempt can extend the block.
-   Also found: this playlist is the wrong candidate. Its videos are spoken in
-   Hindi but carry human-written **English** captions (checked on 5 of 15), so it
-   would not exercise the non-English path (translated or original-language
-   captions). Pick a playlist whose only caption track is not English; check with
-   `YouTubeTranscriptApi().list(video_id)` before running.
-   The owner suggested the npm library `youtube-caption-extractor`
-   (github.com/devhims/youtube-caption-extractor); tried at 09:40 on two videos
-   (an English and a Hindi track): "Caption fetch failed: 429" as well. Not added
-   to the project.
-5. [ ] Click through the live demo in a browser. **Blocked 2026-11-12: the demo
-   answers 404** (see "Blocked on the owner" above).
-   Done instead, on the owner's instruction to work locally (2026-11-12): the
-   same demo build (`npm run build:pages` with the Pages base path), served from
-   `frontend/dist-pages` with `vite preview` and clicked through in the browser.
-   Worked: landing page, prefilled demo sign-in, course list (36/58 matched, 22
-   gaps), Path with study ranges and "Also read" (OSTEP pages and sections), the
-   player (opens at second 637 for a 10:37 start, closes), the read-only message
-   on "Wrong topic", Focus, Questions (6 of 8), Topics, Sources, Search (found,
-   and the demo's hint when not found), no sideways scroll at desktop width, no
-   console errors. Not checked: phone width (the browser window could not be
-   resized this time; it was checked on 2026-11-11), the look by eye, and the
-   online address itself. The preview server was stopped afterwards.
+   transcripts are kept in `backend/data/live-dbms.db` (not in git).
+   **Playlist taught in another language: in progress (2026-11-12).** The owner
+   made clear what "non-English" means: the teacher may speak any language and the
+   transcript may be in any language; the transcript is what gets matched.
+   Playlist: `PLjgyGylma3IFNC7sNZOSbwGQPK_MYtCFW` (Gate Smashers, normalization,
+   15 lectures spoken in Hindi). It is a good mix: 10 lectures have human English
+   captions, 1 has captions only in Hindi script (lecture 35), 3 have no captions
+   (36, 37, 38), and 1 has an English track whose transcript panel would not load
+   (26).
+   YouTube refused every caption download from this PC all day (HTTP 429, through
+   youtube-transcript-api, yt-dlp, the owner's suggested npm library
+   `youtube-caption-extractor`, and a plain request from the browser). What works:
+   - The on-screen transcript ("Show transcript") in the owner's Chrome, driven
+     through the Claude in Chrome extension. 11 transcripts were copied that way
+     into `backend/data/hi-captions/<video id>.txt` (not in git).
+   - Audio download, so the video can be listened to (Whisper). `tiny` mis-hears
+     the terms; `small` is right ("first normal form") and took about 6 minutes
+     for an 8.5-minute lecture including a one-time 460 MB model download.
+   Built because of this (all tested, see the checkpoint log): listening when
+   captions are refused or unreadable; `PUT /videos/{vid}/transcript` and
+   `GET /videos/untranscribed`; "Paste its transcript" on the Path and Sources
+   screens; `--transcripts` in `evaluation/live.py`.
+   **Still to do:** the run
+   `ASR_ENABLED=true ASR_MODEL=small python -m evaluation.live --name hi-dbms
+   --subject "Database Management Systems" --playlist <link>
+   --syllabus evaluation/samples/dbms_normalization_syllabus.txt
+   --transcripts data/hi-captions --raw` (output in `backend/data/live-hi-dbms.log`,
+   cache in `backend/data/live-hi-dbms.db`) was started at 10:15, died at about
+   10:35 with nothing heard (the session that started it ended), and was started
+   again at 14:20. It listens to 5 lectures (26, 35, 36, 37, 38: about 90 minutes
+   of audio). When it ends: judge each match against the
+   transcripts, write the result into [[Matching Pipeline]] "Results", and mark
+   this item done. If it was interrupted, run the same command again: finished
+   lectures are cached.
+   Not possible and not built: calling YouTube's transcript-panel service from a
+   script (it has to pose as a browser; the safety system here refuses that as
+   bot-check circumvention, and it is not something to ship).
+5. [x] Live demo clicked through in a browser (2026-11-12), on the real address
+   after it came back: a deep link to `/signin` loads (GitHub's 404 fallback, the
+   one expected console message), demo sign-in, course list (36/58 matched, 22
+   gaps), Path with study ranges and "Also read", the player (opens at second 637
+   for a 10:37 start), the read-only message on "Wrong topic", Focus, Questions (6
+   of 8), Topics, Sources, Search (found, and not found for what the playlist
+   lacks). Not checked: phone width (the window could not be resized) and the look
+   by eye. The same build was also clicked through locally before that.
 6. [ ] Final state: clean `backend/data/app.db` (no test account), docs and
-   `nextAi.txt` final, everything pushed. Reading CI for the latest commit
-   needs the repository to be public again, or a login. Checked locally on
-   2026-11-12: `backend/data/app.db` has 0 users and 0 courses, nothing listens
-   on ports 8000 or 4173, the working tree is clean and pushed.
+   `nextAi.txt` final, everything pushed, CI green. On 2026-11-12:
+   `backend/data/app.db` has 0 users and 0 courses; CI is green for `e8c1b7e`.
+   The code of item 4 (listen, paste) was committed and pushed on 2026-11-12 at
+   about 14:45 after the tests, the gate, the build and a browser check of the
+   paste box. **Open: the Hindi playlist result (item 4), then CI green for the
+   last commit.**
 
 Cannot be done here (recorded, not faked): YouTube Data API path (no key), YouTube
 watch time (not offered by YouTube), Docker run on this PC.
@@ -336,8 +343,10 @@ needed, because startup now upgrades old databases automatically.
 
 - YouTube was blocking this machine on 2026-11-10 after one burst of requests.
   Pacing was added afterwards; whether the block has lifted is untested.
-- Multi-language support is implemented but unverified on real videos.
-- The online demo answers 404 since the repository stopped being public (2026-11-12).
+- A playlist taught in Hindi is being run (finishing pass item 4); captions translated
+  by YouTube and a multilingual embedding model are still unverified on real videos.
+- YouTube refuses caption downloads from this PC (HTTP 429, 2026-11-11 evening to at
+  least 2026-11-12 midday). Listening and pasting work around it.
 - The YouTube Data API backend is written but has never run against the real API
   (no key was available).
 - PostgreSQL has run only in CI (all tests pass there); never on this PC.
@@ -351,6 +360,7 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
+| 2026-11-12 | (this commit) | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |
 | 2026-11-12 | (this commit) | Demo build clicked through locally (the online address is still 404); the suggested `youtube-caption-extractor` library also gets HTTP 429 from YouTube; local final state checked (empty `app.db`, no server running). No code changed. |
 | 2026-11-12 | (this commit) | Tests for the question fallback (191 tests pass, lint clean, gate 25/25). Non-English run retried: YouTube still refuses caption downloads (HTTP 429), and the Hindi candidate turned out to have English captions. Found the online demo answering 404 because the repository is no longer public; left for the owner to decide. |
 | 2026-11-11 | (this commit) | Browser pass of the full app finished; `start-waypoint.bat` run and working; unanswered past questions fall back to where their topic is taught. Non-English run blocked by YouTube rate limiting. |

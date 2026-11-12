@@ -87,6 +87,8 @@ export async function demoRequest<T>(method: string, path: string): Promise<T> {
       return data.topic_map as T;
     case "/job":
       return data.project.job as T;
+    case "/videos/untranscribed":
+      return [] as T;
     case "/search":
       return search(params.get("q") ?? "") as T;
     default:
