@@ -27,7 +27,9 @@ log = logging.getLogger(__name__)
 class Transcriber(Protocol):
     name: str
 
-    def transcribe(self, video_id: str, duration_s: int = 0) -> Transcript | None: ...
+    def transcribe(
+        self, video_id: str, duration_s: int = 0, hint: str = ""
+    ) -> Transcript | None: ...
 
 
 def _decode(path: Path):
@@ -89,7 +91,11 @@ class WhisperTranscriber:
             ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
         return next(Path(folder).glob(f"{video_id}.*"), None)
 
-    def transcribe(self, video_id: str, duration_s: int = 0) -> Transcript | None:
+    def transcribe(self, video_id: str, duration_s: int = 0, hint: str = "") -> Transcript | None:
+        """``hint`` is text in the lecture's own words (its title and subject). It
+        is given to Whisper as the words that came before, which steers the
+        spelling of terms: without it a Hindi lecture on "closure" of functional
+        dependencies came out as "closer" throughout, and the topic was missed."""
         from .embeddings import get_embedder
 
         settings = get_settings()
@@ -105,7 +111,10 @@ class WhisperTranscriber:
             translate = not get_embedder().multilingual
             with self._lock:  # one transcription at a time; it is CPU-bound
                 segments, info = self._load().transcribe(
-                    _decode(audio), task="translate" if translate else "transcribe", vad_filter=True
+                    _decode(audio),
+                    task="translate" if translate else "transcribe",
+                    vad_filter=True,
+                    initial_prompt=hint.strip()[:400] or None,
                 )
                 parts = [
                     TranscriptSegment(start=s.start, duration=s.end - s.start, text=s.text.strip())

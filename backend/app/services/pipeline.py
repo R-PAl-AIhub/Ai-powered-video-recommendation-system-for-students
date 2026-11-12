@@ -183,6 +183,7 @@ def _fetch_one(
     watch: _BlockWatch,
     duration_s: int = 0,
     listen: bool = True,
+    hint: str = "",
 ) -> _Fetched:
     """Fetch one video (see ``_fetch``) and report to ``watch`` whether YouTube
     refused it. Once the watch says to stop, captions are not asked for any more:
@@ -190,8 +191,12 @@ def _fetch_one(
     if watch.stopped():
         if not listen or get_transcriber() is None:
             return _Fetched(video_id, None, None, "error", blocked=True)
-        return _fetch(client, video_id, youtube_id, has_description, duration_s, captions=False)
-    fetched = _fetch(client, video_id, youtube_id, has_description, duration_s, listen=listen)
+        return _fetch(
+            client, video_id, youtube_id, has_description, duration_s, captions=False, hint=hint
+        )
+    fetched = _fetch(
+        client, video_id, youtube_id, has_description, duration_s, listen=listen, hint=hint
+    )
     watch.record(fetched.refused)
     return fetched
 
@@ -204,6 +209,7 @@ def _fetch(
     duration_s: int = 0,
     captions: bool = True,
     listen: bool = True,
+    hint: str = "",
 ) -> _Fetched:
     """Fetch one video's transcript, and its details only if they are needed.
 
@@ -236,7 +242,7 @@ def _fetch(
     if (transcript is None or unreadable) and transcriber is not None:
         heard = None
         try:  # no usable captions, or captions refused: listen to the video instead
-            heard = transcriber.transcribe(youtube_id, duration_s)
+            heard = transcriber.transcribe(youtube_id, duration_s, hint)
             silent = heard is None
         except Exception as exc:
             if _is_block(exc) and transcript is None:
@@ -390,6 +396,8 @@ def fetch_videos(
                 watch,
                 video.duration_s,
                 listen,
+                # The lecture's title and subject steer how Whisper spells terms.
+                ". ".join(part for part in (video.title, project.subject) if part),
             )
             for video in pending
         ]

@@ -39,7 +39,16 @@ change it only with the tools in [[Evaluation and Testing]].
    read-out (three or more "chapter N" references in one passage) keeps half its
    relevance, so the topic stays a gap; a video that names a topic of two or more
    words in two passages in a row is discussing it and gets at least 0.6, whatever
-   its title says. Scattered passing mentions do not count. **Chaining:** sequencing adds a small bonus when the next pick's
+   its title says. Scattered passing mentions do not count. **Sure first stage**
+   (in `rerank_relevance`, since 2026-11-12): when the first stage is nearly
+   certain (0.9 or more), a transcript passage scores 0.5 or more by itself, and
+   none of the topic's distinctive words is missing from the video, the reranker
+   cannot turn the video into a gap (relevance at least 0.6). Found on a real
+   Hindi-taught playlist: the reranker gave 0 to "Insertion deletion and update
+   anomalies" against the lecture titled "Insertion, Deletion & Updation Anomaly"
+   that teaches exactly that. Checked on the three cached real courses: only that
+   topic changes (the "no word missing" condition is what keeps "Classification
+   of DBMS" a gap). **Chaining:** sequencing adds a small bonus when the next pick's
    stretch is close in meaning to the previous one's. **Transitions:** topic order
    can be mined from the playlists' own video order (`playlist_topic_order`).
    **Extra topics:** headings found only in notes, and phrases asked in two or more

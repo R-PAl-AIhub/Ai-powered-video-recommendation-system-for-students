@@ -78,8 +78,14 @@ CURRENT STATE (updated at every checkpoint)
   and builds the path; a second job (options listen) then listens to the videos
   left without words and updates the path. A video with nothing to hear gets the
   status "silent". Verified: 208 tests, ruff clean, gate PASS, npm run build.
-  NOT yet seen in the real app with a real video: do the check written under
-  item 7 in docs/Progress.md, then mark item 7 [x].
+  Seen working in the real app with a real video (throwaway copy of demo.db).
+  Also pushed: no request to paste a transcript when the app listens by itself
+  (my instruction: the user must not decide what is listened to; least
+  discomfort, a clear path); Whisper gets the title and subject as a spelling
+  hint; a matching rule so a nearly certain first-stage match that the
+  transcript backs cannot become a gap. 210 tests, ruff clean, gate PASS, build.
+  Not yet seen in a browser: the new quiet wording on the Path and Sources
+  screens. Do that, then mark item 7 [x].
 - I pointed to github.com/lifesized/youtube-transcriber. It uses the same order
   (captions, then Whisper on the machine). Nothing was copied from it (AGPL,
   Node app, cloud option). Recorded in docs/Decisions.md.

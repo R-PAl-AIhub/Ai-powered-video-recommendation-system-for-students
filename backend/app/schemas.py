@@ -159,6 +159,9 @@ class VideoOut(Model):
     playlist_position: int
     transcript_status: str
     transcript_language: str
+    # The app will listen to this video by itself to get its words (nothing for
+    # the student to do).
+    listening: bool = False
     source: str
     watched: bool = False
 

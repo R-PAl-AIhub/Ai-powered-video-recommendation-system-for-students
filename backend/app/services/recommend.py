@@ -49,6 +49,8 @@ KEY_TERM_WEIGHT = 0.3  # most a topic's missing words can lower a video's releva
 OUTLINE_REFERENCES = 3  # "chapter 7 ... chapter 8 ... chapter 9" in one passage = a contents list
 OUTLINE_PENALTY = 0.5  # relevance kept when a topic is only named in a contents list
 NAMED_FLOOR = 0.6  # relevance of a video that discusses a topic by name
+SURE_FIRST_STAGE = 0.9  # first-stage relevance that the reranker may not overrule...
+SURE_TRANSCRIPT = 0.5  # ...when a transcript passage scores at least this by itself
 PRACTICE_PENALTY = 0.05  # worked-problem videos rank just below the concept lecture
 CONTEXT_WEIGHT = 0.15  # share of the unit-qualified wording in a topic vector
 NOTES_WEIGHT = 0.15  # share of the teacher's notes passage, when one matches
@@ -391,6 +393,24 @@ def rerank_relevance(
                 continue
             second = reranker.calibrate(max(known[r] for r in rows))
             out[row, column] = second * (1.0 - FIRST_STAGE_WEIGHT * (1.0 - first))
+            start, end = index.spans[column]
+            if (
+                first >= SURE_FIRST_STAGE
+                and end - start > 1
+                and float(scores[row, start + 1 : end].max()) >= SURE_TRANSCRIPT
+                and all(
+                    word in " ".join(index.texts[start:end]).lower()
+                    for word in _key_words(text)
+                )
+            ):
+                # Wording and meaning both say this is the lecture, in the title and
+                # in what is said, and none of the topic's words is missing from it
+                # (without that, "Classification of DBMS" took "DBMS - Definition").
+                # The reranker reads questions better than syllabus
+                # phrases and can reject such a video ("Insertion deletion and update
+                # anomalies" against a lecture called "Insertion, Deletion & Updation
+                # Anomaly", seen on a real playlist); it may not turn it into a gap.
+                out[row, column] = max(out[row, column], NAMED_FLOOR)
     return out
 
 

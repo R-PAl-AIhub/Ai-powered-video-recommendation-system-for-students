@@ -102,6 +102,8 @@ export interface Video {
   playlist_position: number;
   transcript_status: string;
   transcript_language: string;
+  /** The app listens to this video by itself; nothing for the student to do. */
+  listening?: boolean;
   source: string;
   watched: boolean;
 }

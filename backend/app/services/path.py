@@ -34,8 +34,11 @@ from ..schemas import (
     TopicOut,
     VideoOut,
 )
+from .asr import get_transcriber
 from .readings import reading_url
 from .youtube import watch_url
+
+TO_LISTEN = ("pending", "none", "foreign", "error")  # statuses the listening run picks up
 
 
 def video_out(video: Video, playlists: dict[int, Playlist]) -> VideoOut:
@@ -54,6 +57,7 @@ def video_out(video: Video, playlists: dict[int, Playlist]) -> VideoOut:
         playlist_position=video.playlist_position,
         transcript_status=video.transcript_status,
         transcript_language=video.transcript_language,
+        listening=video.transcript_status in TO_LISTEN and get_transcriber() is not None,
         source=video.source,
         watched=video.watched_at is not None,
     )

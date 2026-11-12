@@ -19,7 +19,7 @@ class FakeWhisper:
     def __init__(self, youtube, deaf: frozenset[str] = frozenset()):
         self.youtube, self.deaf, self.heard = youtube, deaf, []
 
-    def transcribe(self, video_id, duration_s=0):
+    def transcribe(self, video_id, duration_s=0, hint=""):
         self.heard.append(video_id)
         sentences = self.youtube.videos[video_id][1].sentences
         if video_id in self.deaf or not sentences:
@@ -125,8 +125,8 @@ def test_captions_in_an_unreadable_language_are_listened_to(client, youtube, mon
     _hindi_captions(youtube, "osBankers08")
 
     class Translating(FakeWhisper):
-        def transcribe(self, video_id, duration_s=0):
-            heard = super().transcribe(video_id, duration_s)
+        def transcribe(self, video_id, duration_s=0, hint=""):
+            heard = super().transcribe(video_id, duration_s, hint)
             if heard is not None:
                 heard.language = "hi→en"  # Whisper translates as it listens
             return heard
@@ -177,9 +177,9 @@ def _without_captions(youtube) -> set[str]:
 class Audible(FakeWhisper):
     """Also hears the videos that have no captions at all."""
 
-    def transcribe(self, video_id, duration_s=0):
+    def transcribe(self, video_id, duration_s=0, hint=""):
         if self.youtube.videos[video_id][1].sentences:
-            return super().transcribe(video_id, duration_s)
+            return super().transcribe(video_id, duration_s, hint)
         self.heard.append(video_id)
         segments = [TranscriptSegment(0.0, 30.0, "Welcome to this lecture of the course.")]
         return Transcript(language="en", is_generated=True, segments=segments)
@@ -254,3 +254,39 @@ def test_without_ffmpeg_the_app_still_works(monkeypatch):
     monkeypatch.setattr(asr, "_available", None)
     monkeypatch.setattr(shutil, "which", lambda name: None)
     assert asr.get_transcriber() is None
+
+
+def test_whisper_is_told_the_title_and_subject(client, youtube):
+    """The title and subject steer the spelling of terms ("closure", not "closer")."""
+    hints: dict[str, str] = {}
+
+    class Noting(FakeWhisper):
+        def transcribe(self, video_id, duration_s=0, hint=""):
+            hints[video_id] = hint
+            return super().transcribe(video_id, duration_s, hint)
+
+    set_transcriber(Noting(youtube))
+    try:
+        register(client)
+        make_course(client)
+    finally:
+        set_transcriber(None)
+    assert hints
+    for video_id, hint in hints.items():
+        assert youtube.videos[video_id][1].title in hint
+        assert "Operating Systems" in hint
+
+
+def test_videos_the_app_will_listen_to_are_flagged(client, youtube):
+    """The screens use the flag to say "nothing for you to do" instead of asking
+    the student to paste a transcript."""
+    register(client)
+    project_id = make_course(client)  # listening is off: nothing is flagged
+    url = f"/api/projects/{project_id}/videos/untranscribed"
+    waiting = client.get(url).json()
+    assert waiting and not any(video["listening"] for video in waiting)
+    set_transcriber(FakeWhisper(youtube))
+    try:
+        assert all(video["listening"] for video in client.get(url).json())
+    finally:
+        set_transcriber(None)

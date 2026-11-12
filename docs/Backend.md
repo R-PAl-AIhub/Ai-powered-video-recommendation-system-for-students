@@ -41,7 +41,8 @@ Back to [[Project Map]]. Python 3.12+ (developed on 3.14), FastAPI, SQLAlchemy.
 - `POST /projects/{id}/process`, `GET /projects/{id}/job`
 - `GET /projects/{id}/path`, `GET /projects/{id}/questions`, `GET /projects/{id}/search?q=`
 - `POST|DELETE /projects/{id}/feedback`, `PUT /projects/{id}/videos/{vid}/watched`
-- `GET /projects/{id}/videos/untranscribed` (videos matched on the title only),
+- `GET /projects/{id}/videos/untranscribed` (videos matched on the title only; each
+  video carries `listening`: true when the app will listen to it by itself),
   `PUT /projects/{id}/videos/{vid}/transcript` `{text}` (use a pasted transcript; returns the new path)
 - `POST /projects/{id}/topics`, `PATCH|DELETE /projects/{id}/topics/{tid}`, `PUT /projects/{id}/topics/order`
 - `POST /projects/{id}/youtube/search`, `POST /projects/{id}/videos`
@@ -98,6 +99,9 @@ With `frontend/dist` built, the same server serves the app at `/`.
      is heard (no speech, or longer than `ASR_MAX_MINUTES`) gets the status
      `silent` and is not listened to again. A single video added from a search is
      not listened to inside the web request; the next analysis does it.
+     Whisper is given the lecture's title and the course subject as a hint
+     (`initial_prompt`), which steers the spelling of terms: without it a Hindi
+     lecture on "closure" came out as "closer" throughout and the topic was missed.
      The audio comes from a different YouTube service than captions, so a
      caption block does not stop it (seen on 2026-11-12: captions answered HTTP 429
      all day, audio downloaded normally). After three refusals in a row captions

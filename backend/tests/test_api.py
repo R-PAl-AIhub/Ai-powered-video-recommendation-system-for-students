@@ -600,7 +600,7 @@ def test_videos_without_captions_are_transcribed_when_asr_is_on(client):
         def __init__(self):
             self.heard = []
 
-        def transcribe(self, video_id, duration_s=0):
+        def transcribe(self, video_id, duration_s=0, hint=""):
             self.heard.append(video_id)
             segments = [TranscriptSegment(i * 30.0, 30.0, line) for i, line in enumerate(lines)]
             return Transcript(language="hi→en", is_generated=True, segments=segments)

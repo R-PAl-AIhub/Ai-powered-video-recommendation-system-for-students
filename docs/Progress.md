@@ -148,13 +148,21 @@ Do in order. Mark each item done here, with what was verified, before moving on.
    search is not listened to inside the web request. Verified: 208 tests pass
    (4 new in `tests/test_listen_when_blocked.py`), lint clean, gate PASS (25/25),
    `npm run build` passes, and on this PC the default settings give
-   `faster-whisper:small` (ffmpeg found). **Not yet seen: the two jobs in the real
-   app in a browser with a real video** (the Hindi run was using the processor).
-   To check: copy `backend/data/demo.db` to `backend/data/tmp/check.db`, start the
-   server on it, press "Update the path" on the Sources screen, see the path
-   stay visible, the line "Listening to videos without captions: n of 9 done",
-   and one video lose its "Paste its transcript" link. Stop the server, delete
-   the copy.
+   `faster-whisper:small` (ffmpeg found). **Seen in the real app (2026-11-12, about 15:00)** on a throwaway copy of the
+   demo database with default settings: "Update the path" finished in 12 seconds
+   with the path ready and the note "9 videos did not give captions that can be
+   read. They are listened to next..."; a second job started by itself; the Path
+   screen stayed usable (29 playable rows) under the line "Listening to videos
+   without captions: 1 of 9 done"; the first real video was heard (9 left became
+   8). The server was then stopped and the copy deleted; the other 8 were not
+   waited for.
+   Added afterwards (owner: "the user shouldn't decide what to listen or what
+   not"; least discomfort): the screens no longer ask for a pasted transcript
+   when the app will listen by itself (`listening` flag per video; quiet note on
+   the Path row, "Nothing for you to do" on Sources). Whisper gets the title and
+   subject as a spelling hint. 210 tests pass, lint clean, gate PASS, frontend
+   builds. Not yet seen in a browser: the new quiet wording (only built and
+   type-checked).
    The owner also pointed to `github.com/lifesized/youtube-transcriber`: it uses
    the same order (captions, then Whisper on the machine). Nothing was copied
    from it (separate Node app, AGPL-3.0, its quick path is a cloud service); see
@@ -386,7 +394,8 @@ Newest first. Each line is a pushed commit on `main`.
 
 | Date | Commit | What changed |
 |---|---|---|
-| 2026-11-12 | (this commit) | Listening is the default (owner's instruction): captions first and the path, then a second job listens to the videos left without words and updates the path; status `silent`; switches itself off without ffmpeg; `ASR_MODEL=small`, `ASR_MAX_MINUTES=180`; "Nothing could be heard" wording in the paste box. 208 tests pass, lint clean, gate 25/25, frontend builds. Not yet seen in the real app with a real video. Demo republished. |
+| 2026-11-12 | (this commit) | From judging the Hindi playlist against its transcripts: the reranker may not overrule a nearly certain first stage that the transcript backs ("Insertion deletion and update anomalies" was a gap although lecture 24 teaches it); Whisper gets the title and subject as a spelling hint ("closure" had come out as "closer"). Quieter screens: no request to paste when the app listens by itself. Two-step listening seen working in the real app with a real video. 210 tests pass, lint clean, gate 25/25, the three cached real courses differ only in the intended topic, frontend builds. Demo republished. |
+| 2026-11-12 | `66a65e5` | Listening is the default (owner's instruction): captions first and the path, then a second job listens to the videos left without words and updates the path; status `silent`; switches itself off without ffmpeg; `ASR_MODEL=small`, `ASR_MAX_MINUTES=180`; "Nothing could be heard" wording in the paste box. 208 tests pass, lint clean, gate 25/25, frontend builds. Not yet seen in the real app with a real video. Demo republished. |
 | 2026-11-12 | `505c0c0` | Words for a video when YouTube refuses captions: listen (`_fetch` in `services/pipeline.py`, also for captions in an unreadable language), or a transcript pasted by the student (`services/pasted.py`, `PUT /videos/{vid}/transcript`, `GET /videos/untranscribed`, "Paste its transcript" on the Path and Sources screens), `--transcripts` in `evaluation/live.py`, audio kept in `DATA_DIR/tmp`. Verified at 14:20 to 14:40: 204 tests pass, lint clean, evaluation gate PASS (25/25, gaps 3/3), `npm run build` passes. Paste box checked in Chrome on a throwaway copy of the demo database (deleted afterwards, server stopped): the Path row of a caption-less video opens the box, a pasted transcript is accepted (HTTP 200), the row then shows a quote from the pasted words and loses the paste link, the Sources list goes from 9 to 8 videos, no console errors. Demo republished after the repository became public again; live demo clicked through; CI green for `e8c1b7e`. |
 | 2026-11-12 | (this commit) | Demo build clicked through locally (the online address is still 404); the suggested `youtube-caption-extractor` library also gets HTTP 429 from YouTube; local final state checked (empty `app.db`, no server running). No code changed. |
 | 2026-11-12 | (this commit) | Tests for the question fallback (191 tests pass, lint clean, gate 25/25). Non-English run retried: YouTube still refuses caption downloads (HTTP 429), and the Hindi candidate turned out to have English captions. Found the online demo answering 404 because the repository is no longer public; left for the owner to decide. |

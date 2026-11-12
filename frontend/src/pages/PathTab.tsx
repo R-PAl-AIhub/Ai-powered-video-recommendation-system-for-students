@@ -180,6 +180,15 @@ function TranscriptPaste({
   const [text, setText] = useState("");
   const reason = TITLE_ONLY[video.transcript_status];
   if (!reason) return null;
+  if (video.listening) {
+    // The app gets the words by itself; the student is not asked for anything.
+    return (
+      <p className="text-[13px] leading-relaxed text-soft">
+        Matched on its title for now. The app is listening to this video and will update the path
+        by itself.
+      </p>
+    );
+  }
   const watch = `https://www.youtube.com/watch?v=${video.youtube_id}`;
 
   return (
@@ -251,14 +260,26 @@ export function UntranscribedVideos({ projectId, locked }: { projectId: number; 
     queryFn: () => api.untranscribed(projectId),
   });
   if (!videos?.length) return null;
+  const heard = videos.filter((video) => video.listening);
+  const manual = videos.filter((video) => !video.listening);
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-soft">
-        {plural(videos.length, "video")} matched on the title only. The path is more exact with
-        what is said in them.
-      </p>
+      {heard.length ? (
+        <p className="text-sm text-soft">
+          {plural(heard.length, "video")} without captions. The app listens to{" "}
+          {heard.length === 1 ? "it" : "them"} by itself (about as long as the{" "}
+          {heard.length === 1 ? "video" : "videos"}) and then updates the path. Nothing for you to
+          do.
+        </p>
+      ) : null}
+      {manual.length ? (
+        <p className="text-sm text-soft">
+          {plural(manual.length, "video")} matched on the title only. The path is more exact with
+          what is said in {manual.length === 1 ? "it" : "them"}.
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-3">
-        {videos.map((video) => (
+        {manual.map((video) => (
           <li key={video.id} className="flex flex-col gap-1.5">
             <p className="truncate text-sm font-medium">{video.title || video.youtube_id}</p>
             <TranscriptPaste projectId={projectId} video={video} locked={locked} change={change} />
